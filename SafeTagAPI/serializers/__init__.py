@@ -1,3 +1,0 @@
-from .practitioner_serializer import PractitionersSerializer, ProfessionalTagScoreSerializer
-from .review_serializer import ReviewSerializer, ReviewTagSerializer, ReviewPathologieSerializer
-from .user_serializer import UsersSerializer

@@ -1,21 +1,34 @@
-from rest_framework import viewsets
-from rest_framework.decorators import action
+from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from ..models.user_model import User
+from rest_framework.decorators import action
+from ..models.user_model import CustomUser
 from ..serializers.user_serializer import UsersSerializer
-from ..models.review_model import Review
-from ..serializers.review_serializer import ReviewSerializer
 
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UsersSerializer
+User = CustomUser
+class UserViewSet(viewsets.ViewSet):
+    """
+    A viewset for user registration and profile management.
+    """
 
-    def get_queryset(self):
-        return User.objects.all()
-    
-    @action(detail=True, methods=['get'])
-    def reviews(self, request, pk=None):
-        user = self.get_object()
-        reviews = Review.objects.filter(id_user=user)
-        serializer = ReviewSerializer(reviews, many=True)
-        return Response(serializer.data)
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
+    def register(self, request):
+        """
+        Custom action for user registration.
+        """
+        serializer = UsersSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# class CustomTokenObtainPairView(TokenObtainPairView):
+#     """
+#     Custom view for JWT token generation.
+#     """
+#     serializer_class = CustomTokenObtainPairSerializer
+
+# class CustomTokenRefreshView(TokenRefreshView):
+#     """
+#     Custom view for refreshing JWT tokens.
+#     """
+#     serializer_class = CustomTokenObtainPairSerializer

@@ -1,4 +1,5 @@
 Django
+requests
 psycopg2
 django-environ
 djangorestframework
