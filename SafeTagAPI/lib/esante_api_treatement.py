@@ -7,85 +7,100 @@ from SafeTagAPI.serializers.practitioner_serializer import PractitionerSerialize
 
 # Définir l'URL et les en-têtes d'authentification
 esante_api_url = "https://gateway.api.esante.gouv.fr/fhir"
-headers = {"ESANTE-API-KEY": "628abf0c-223d-4584-bf65-9455453f79af", "specialty": "17"}
+headers = {"ESANTE-API-KEY": "628abf0c-223d-4584-bf65-9455453f79af"}
+mental_health_specialties = [
+    "SM38", "SM42", "SM43", 
+    "SCD03", "SCD09", "SCD10", "SCD08", "SM39"
+]
+specialty_filter = "specialty=" + ",".join(mental_health_specialties)
 inclusions = "?_include=PractitionerRole:organization"
 mos_api_url = "https://mos.esante.gouv.fr/NOS"
 
 
 # Envoyer la requête
 def get_all_practitioners():
-    url = f"{esante_api_url}/PractitionerRole"
+    url = f"{esante_api_url}/PractitionerRole?{specialty_filter}"
     response = requests.get(url, headers=headers)
-    # Check if the request was successful
     try:
         if response.status_code == 200:
             data = response.json()
+            practitioners_list = []
             if "entry" in data:
                 for entry in data["entry"]:
-                    practitioner_role = entry.get("resource", {})
-                    api_id= entry.get('id')
-
-                    # Extraire le nom complet du praticien
-                    extensions = practitioner_role.get("extension", [])
-                    name = "N/A"
-                    for extension in extensions:
-                        if (
-                            extension.get("url")
-                            == "https://annuaire.sante.gouv.fr/fhir/StructureDefinition/PractitionerRole-Name"
-                        ):
-                            human_name = extension.get("valueHumanName", {})
-                            family = human_name.get("family", "")
-                            given = " ".join(human_name.get("given", []))
-                            suffix = " ".join(human_name.get("suffix", []))
-                            name = f"{given} {family} {suffix}".strip()
-
-                    # Afficher les informations extraites
-                    print(f"Nom du praticien : {name}")
-                    organization_reference = practitioner_role.get("organization", {}).get(
-                        "reference", "N/A"
-                    )
-                    get_organization_info(organization_reference)
-                    codes = practitioner_role.get("code", [])
-                    sector = get_speciality_reimboursement_sector(codes)
-                    print(f"Secteur de remboursement: {sector}")
-                    # Afficher toutes les spécialités
-                    specialties = practitioner_role.get("specialty", [])
-                    print("Spécialités :")
-                    for specialty in specialties:
-                        for coding in specialty.get("coding", []):
-                            code = coding.get("code", "N/A")
-                            system = coding.get("system")
-                            description = get_specialty_description(system, code)
-                            print(
-                                f" - Code : {code}, Description : {description}, System: {system}"
-                            )
-                    print("\n")
-            else:
-                print("Aucune entrée trouvée dans la réponse.")
+                    practitioner_data = process_practitioner_entry(entry)
+                    practitioners_list.append(practitioner_data)
+            return practitioners_list
         else:
+            print("Je regarde toute la liste")
             print(f"Erreur {response.status_code} : {response.text}")
-    
+            return []
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
+        return []
 
-# Fonction pour obtenir la description d'une spécialité via son code et système
+def process_practitioner_entry(entry):
+    practitioner_role = entry.get("resource", {})
+    api_id = practitioner_role.get('id')
+    
+    name, surname = extract_name_and_surname(practitioner_role.get("extension", []))    
+    organization_reference = practitioner_role.get("organization", {}).get("reference", "N/A")
+    organization_info, org_addresses = get_organization_info(organization_reference)
+    specialties = get_specialities(practitioner_role.get("specialty", []))
+    sector = get_speciality_reimboursement_sector(practitioner_role.get("code", []))
+    
+    practitioner_data = {
+        "name": name,
+        "surname": surname,
+        "specialities": specialties,
+        "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
+        "reimboursement_sector": sector,
+        "addresses": org_addresses,
+        "organizations": [organization_info],
+        "api_id": api_id
+    }
+    return practitioner_data
+
+def extract_name_and_surname(extensions):
+    name = "N/A"
+    surname = "N/A"
+    for extension in extensions:
+        if extension.get("url") == "https://annuaire.sante.gouv.fr/fhir/StructureDefinition/PractitionerRole-Name":
+            human_name = extension.get("valueHumanName", {})
+            name = human_name.get("family", "")
+            given = " ".join(human_name.get("given", []))
+            surname = f"{given}".strip()
+    return name, surname
+
+def get_organization_info(org_reference):
+    org_url = f"{esante_api_url}/{org_reference}"
+    response = requests.get(org_url, headers=headers)
+    if response.status_code == 200:
+        org_data = response.json()
+        org_addresses = collect_addresses(org_data.get("address", []))
+        return {"name": org_data.get("name", "N/A"),"api_id": org_data.get("id"), "addresses": org_addresses}, org_addresses
+    else:
+        return "N/A", []
+
+def get_specialities(specialties):
+    specialities_list = []
+    for specialty in specialties:
+        for coding in specialty.get("coding", []):
+            code = coding.get("code", "N/A")
+            system = coding.get("system")
+            description = get_specialty_description(system, code)
+            specialities_list.append(description)
+    return specialities_list
+
 def get_specialty_description(system, code):
     try:
         response_dir = requests.get(system, timeout=30)
-        # Charger le fichier JSON à partir de l'URL du système
         soup = BeautifulSoup(response_dir.text, "html.parser")
-        json_files = [
-            a["href"]
-            for a in soup.find_all("a", href=True)
-            if a["href"].endswith(".json")
-        ]
+        json_files = [a["href"] for a in soup.find_all("a", href=True) if a["href"].endswith(".json")]
         json_url = f"{system}/{json_files[0]}"
         response = requests.get(json_url, timeout=30)
         if response.status_code == 200:
             data = response.json()
-            concepts = data.get("concept", [])
-            # Parcourir les concepts pour trouver le code correspondant
-            for concept in concepts:
+            for concept in data.get("concept", []):
                 if concept.get("code") == code:
                     return concept.get("display", "Description non trouvée")
         else:
@@ -93,82 +108,122 @@ def get_specialty_description(system, code):
     except requests.exceptions.RequestException as e:
         return f"Erreur de requête : {e}"
 
-
 def get_speciality_reimboursement_sector(codes):
-    sector = "Aucun secteur renseigné"
     for code_entry in codes:
         for coding in code_entry.get("coding", []):
-            if (
-                coding.get("system")
-                == "https://mos.esante.gouv.fr/NOS/TRE_R23-ModeExercice/FHIR/TRE-R23-ModeExercice"
-            ):
-                sector = coding.get("code")
-    return sector
+            if coding.get("system") == "https://mos.esante.gouv.fr/NOS/TRE_R23-ModeExercice/FHIR/TRE-R23-ModeExercice":
+                return coding.get("code", "Aucun secteur renseigné")
+    return "Aucun secteur renseigné"
 
-
-def get_organization_info(org_reference):
-    org_url = f"{esante_api_url}/{org_reference}"
-    response = requests.get(org_url, headers=headers)
-    if response.status_code == 200:
-        org_data = response.json()
-        display_organization_details(org_data)
-    else:
-        print(response.status_code)
-
-
-def display_organization_details(org_data):
-    # Display organization name
-    name = org_data.get("name", "N/A")
-    print(f"Organization Name: {name}")
-
-    # Display organization identifiers
-    identifiers = org_data.get("identifier", [])
-    print("Identifiers:")
-    for identifier in identifiers:
-        id_type = identifier.get("type", {}).get("coding", [{}])[0].get("code", "N/A")
-        id_value = identifier.get("value", "N/A")
-        print(f" - Type: {id_type}, Value: {id_value}")
-
-    # Display contact details
-    telecom = org_data.get("telecom", [])
-    print("Contact Details:")
-    for contact in telecom:
-        system = contact.get("system", "N/A")
-        value = contact.get("value", "N/A")
-        rank = contact.get("rank", "N/A")
-        print(f" - {system.capitalize()}: {value} (Rank: {rank})")
-
-    # Display address details
-    addresses = org_data.get("address", [])
-    print("Addresses:")
+def collect_addresses(addresses):
+    address_list = []
+    house_number = ""
+    street_name_type = ""
+    street_name_base = ""
     for address in addresses:
-        line = address.get("line", ["N/A"])
+            # Check if '_line' extensions exist and are not empty
+        if '_line' in address and address['_line']:
+            # Extract extensions from '_line'
+            line_extensions = address['_line'][0].get('extension', [])
+            for ext in line_extensions:
+                if ext.get('url') == 'http://hl7.org/fhir/StructureDefinition/iso21090-ADXP-houseNumber':
+                    house_number = ext.get('valueString', "")
+                elif ext.get('url') == 'http://hl7.org/fhir/StructureDefinition/iso21090-ADXP-streetNameType':
+                    street_name_type = ext.get('valueString', "")
+                elif ext.get('url') == 'http://hl7.org/fhir/StructureDefinition/iso21090-ADXP-streetNameBase':
+                    street_name_base = ext.get('valueString', "")
+    
+    # Combine components into a full address line
+            line = f"{house_number} {street_name_type} {street_name_base}".strip()
         city = address.get("city", "N/A")
         postal_code = address.get("postalCode", "N/A")
-        extensions = address.get("extension", [])
-        print(
-            f" - Address: {', '.join(filter(None, line))}, City: {city}, Postal Code: {postal_code}"
-        )
-        for extension in extensions:
-            ext_url = extension.get("url")
-            ext_value = extension.get("valueCoding", {}).get("code", "N/A")
-            print(f"   - Extension URL: {ext_url}, Value: {ext_value}")
+        department = get_department(postal_code)
+        #Here would be implemented the call function to convert entire addresses in location datas
+        latitude = address.get("latitude", None)
+        longitude = address.get("longitude", None)
+        address_list.append({
+            "line": line,
+            "city": city,
+            "department": department,
+            "latitude": latitude,
+            "longitude": longitude
+        })
+    return address_list
 
-    # Display parent organization reference
-    parent_org = org_data.get("partOf", {}).get("reference", "N/A")
-    print(f"Parent Organization: {parent_org}")
+def get_map_coordinates(address):
+    pass
 
+def get_department(postal_code):
+    if not postal_code:
+        return "N/A"
+
+    # Ensure the postal code is a string to handle cases where it's provided as an integer
+    postal_code = str(postal_code)
+
+    # Handle overseas departments and territories
+    if postal_code.startswith("97") or postal_code.startswith("98"):
+        if postal_code[:3] == "971":
+            return "971"  # Guadeloupe
+        elif postal_code[:3] == "972":
+            return "972"  # Martinique
+        elif postal_code[:3] == "973":
+            return "973"  # French Guiana
+        elif postal_code[:3] == "974":
+            return "974"  # Réunion
+        elif postal_code[:3] == "975":
+            return "975"  # Saint Pierre and Miquelon
+        elif postal_code[:3] == "976":
+            return "976"  # Mayotte
+        elif postal_code[:3] == "977":
+            return "977"  # Saint Barthélemy
+        elif postal_code[:3] == "978":
+            return "978"  # Saint Martin
+        elif postal_code[:3] == "984":
+            return "984"  # French Southern Territories
+        elif postal_code[:3] == "986":
+            return "986"  # Wallis and Futuna
+        elif postal_code[:3] == "987":
+            return "987"  # French Polynesia
+        elif postal_code[:3] == "988":
+            return "988"  # New Caledonia
+        elif postal_code[:3] == "989":
+            return "989"  # Clipperton Island
+        else:
+            return postal_code[:3]  # Default to the first three digits
+
+    # For metropolitan France, use the first two digits
+    return postal_code[:2]
     
+
 def get_practitioner_details(api_practitioner_id):
     try:
-        # Fetch from API if not in cache
         url = f"{esante_api_url}/PractitionerRole/{api_practitioner_id}"
         response = requests.get(url, headers=headers) 
         if response.status_code == 200:
             practitioner_data = response.json()
-            cache_key = f"practitioner_{api_practitioner_id}"
-            cache.set(cache_key, practitioner_data, timeout=60 * 60 * 24)
-            serializer = PractitionerSerializer(data=practitioner_data)
+            extensions = practitioner_data.get("extension", [])
+            name, surname = extract_name_and_surname(extensions)
+            organization_reference = practitioner_data.get("organization", {}).get("reference", "N/A")
+            organization_info, org_addresses = get_organization_info(organization_reference)
+            
+            specialties = get_specialities(practitioner_data.get("specialty", []))
+            sector = get_speciality_reimboursement_sector(practitioner_data.get("code", []))
+            api_id = practitioner_data.get("id")
+
+            # Prepare the data for serialization
+            data_for_serializer = {
+                "name": name,
+                "surname": surname,
+                "specialities": specialties,
+                "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
+                "reimboursement_sector": sector,
+                "addresses": org_addresses,
+                "organizations": [organization_info],
+                "api_id": api_id
+            }
+            print(data_for_serializer)
+            # Serialize and save the practitioner data
+            serializer = PractitionerSerializer(data=data_for_serializer)
             if serializer.is_valid():
                 practitioner = serializer.save()
                 return practitioner
@@ -176,7 +231,10 @@ def get_practitioner_details(api_practitioner_id):
                 print("Validation error:", serializer.errors)
                 return None
         else:
+            print('Je regarde les détails des practitionners')
             print(f"Error {response.status_code} : {response.text}")
             return None
     except requests.RequestException:
         return None
+    
+list = get_all_practitioners()

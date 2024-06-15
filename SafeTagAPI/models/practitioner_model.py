@@ -8,14 +8,13 @@ class Practitioner_Address(models.Model):
     department = models.BigIntegerField()
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
-    wheelchair_accessibility = models.BooleanField(blank = True, default = None)
+    wheelchair_accessibility = models.BooleanField(null = True, blank = True, default = None)
 
     def __str__(self):
         return f"{self.line}, {self.city}, {self.postal_code}"
 
 class Organization(models.Model):
     name = models.CharField(max_length=255)
-    api_id= models.BigIntegerField()
     addresses = models.ManyToManyField(Practitioner_Address, blank=True)
 
     def __str__(self):
@@ -37,7 +36,7 @@ class Practitioners(models.Model):
     reimboursement_sector = models.CharField(max_length=100)
     organizations = models.ManyToManyField(Organization, blank=True)
     addresses = models.ManyToManyField(Practitioner_Address)
-    api_id = models.BigIntegerField(unique=True)
+    api_id = models.CharField(unique=True)
 
     def __str__(self):
         return f"{self.name} {self.surname}"
