@@ -1,6 +1,8 @@
+from datetime import date
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
+from rest_framework.decorators import action
 
 from ..models.review_model import Review, Pathologie
 from ..models.tag_model import Review_Tag
@@ -15,15 +17,18 @@ class ReviewViewSet(viewsets.ModelViewSet):
     """
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    # permission_classes = [IsAuthenticatedOrReadOnly]
 
     def create(self, request, *args, **kwargs):
         """
         Custom create method to handle fetching practitioner data from the API if not present.
         """
-        api_practitioner_id = request.data.get('api_practitioner_id')
-        rating = request.data.get('rating')
+        api_practitioner_id = request.data.get('id_practitioner')
+        tags = request.data.get('tags', [])
+        pathologies = request.data.get('pathologies', [])
+        address_id = request.data.get('id_address')
         comment = request.data.get('comment')
+        review_date= date.today()
         
         # Fetch practitioner data if it doesn't exist
         practitioner = Practitioners.objects.filter(api_id=api_practitioner_id).first()
@@ -41,27 +46,23 @@ class ReviewViewSet(viewsets.ModelViewSet):
         # Create the review
         review_data = {
             'id_practitioners': practitioner.id,
+            'review_date': review_date,
             'comment': comment,
-            'rating': rating,
-            'id_user': request.user.id
+            'tags': tags,
+            'pathologies': pathologies,
+            'id_address': address_id,
+            'id_user': 1  # Assuming user is authenticated and using `request.user`
+            # 'id_user': request.user.id  # Assuming user is authenticated and using `request.user`
         }
         review_serializer = ReviewSerializer(data=review_data)
         if review_serializer.is_valid():
             review_serializer.save()
             return Response(review_serializer.data, status=status.HTTP_201_CREATED)
         return Response(review_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class PathologieViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Provides read operations for DSM-5 pathologies.
-    """
-    queryset = Pathologie.objects.all()
-    serializer_class = PathologieSerializer
-
-class TagViewSet(viewsets.ModelViewSet):
-    """
-    Provides CRUD operations for tags.
-    """
-    queryset = Review_Tag.objects.all()
-    serializer_class = ReviewTagSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    
+    
+    @action(detail=True, methods=['get'])
+    def practitioner_reviews(self, request, pk=None):
+        reviews = Review.objects.filter(id_practitioners_id=pk)
+        serializer = self.get_serializer(reviews, many=True)
+        return Response(serializer.data)

@@ -4,10 +4,12 @@ from django.db import models
 class Review(models.Model):
     review_date = models.DateField()
     comment = models.TextField()
+    pathologies = models.ManyToManyField("Pathologie", through="Review_Pathologie")
+    tags = models.ManyToManyField("Tag", through="Review_Tag")
     id_user = models.ForeignKey("CustomUser", on_delete=models.CASCADE)
     id_practitioners = models.ForeignKey("Practitioners", on_delete=models.CASCADE)
-    pathologies = models.ManyToManyField("Pathologie", through="Review_Pathologie")
-
+    id_address = models.ForeignKey("Practitioner_Address", on_delete=models.CASCADE)
+    
     def __str__(self):
         return f"Review by {self.id_user} on {self.id_practitioners}"
 

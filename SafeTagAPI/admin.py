@@ -50,7 +50,6 @@ class ReviewAdmin(admin.ModelAdmin):
     list_display = ("review_date", "comment", "id_user", "id_practitioners")
     list_filter = ("review_date", "id_user", "id_practitioners")
     search_fields = (
-        "id_user__email",
         "id_practitioners__name",
         "id_practitioners__surname",
     )
@@ -81,8 +80,8 @@ class TagAdmin(admin.ModelAdmin):
 # Register the Review_Tag model
 @admin.register(Review_Tag)
 class ReviewTagAdmin(admin.ModelAdmin):
-    list_display = ("id_review", "id_tag", "rating")
-    list_filter = ("rating", "id_review", "id_tag")
+    list_display = ("id_review", "id_tag", "rates")
+    list_filter = ("rates", "id_review", "id_tag")
     search_fields = ("id_review__comment", "id_tag__type")
 
 

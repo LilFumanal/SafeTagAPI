@@ -25,7 +25,7 @@ from SafeTagAPI.views.user_views import UserViewSet
 
 router = routers.DefaultRouter()
 router.register(r"users", UserViewSet, basename="user")
-router.register(r"practitioners", PractitionerViewSet)
+router.register(r"practitioner", PractitionerViewSet)
 router.register(r"reviews", ReviewViewSet)
 
 urlpatterns = [

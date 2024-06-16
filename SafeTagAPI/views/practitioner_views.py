@@ -1,15 +1,16 @@
+from django.shortcuts import render
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from django.core.cache import cache
 
-from ..models.practitioner_model import Practitioners, Practitioner_Address, Organization
+from ..models.tag_model import Tag
+from ..models.practitioner_model import Practitioners, Practitioner_Address, Organization, Professional_Tag_Score
 from ..serializers.practitioner_serializer import PractitionerSerializer, PractitionerAddressSerializer, OrganizationSerializer
 from ..serializers.review_serializer import ReviewSerializer
 from ..lib.esante_api_treatement import get_practitioner_details  
 
-class PractitionerViewSet(viewsets.ReadOnlyModelViewSet):
+class PractitionerViewSet(viewsets.ModelViewSet):
     """
     Provides only read operations on Practitioners since their data is managed externally.
     """
@@ -19,15 +20,39 @@ class PractitionerViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['name', 'surname', 'specialities', 'addresses__city', 'addresses__department', 'organizations__name']
     ordering_fields = ['name', 'surname', 'api_id']
     
+    @action(detail=False, methods=['post'], url_path='fetch-from-api/(?P<api_id>[^/.]+)')
+    def fetch_from_api(self, request, api_id=None):
+        practitioner_data = get_practitioner_details(api_id)
+        serializer = PractitionerSerializer(data=practitioner_data)
+        
+        if serializer.is_valid():
+            practitioner = serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     def retrieve(self, request, *args, **kwargs):
         api_practitioner_id = kwargs['pk']
+        practitioner = self.get_object()
         cache_key = f"practitioner_{api_practitioner_id}"
         cached_data = cache.get(cache_key)
         if cached_data:
             return Response(cached_data)
         else:
-            return get_practitioner_details(api_practitioner_id)
-    
+            # Fetch from API and cache the result
+            practitioner_data = PractitionerSerializer(practitioner).data
+            if practitioner_data:
+                tag_summary_list = practitioner.get_tag_summary()
+                response_data = {
+                    **practitioner_data,  # Include all practitioner fields
+                    'tag_summary_list': tag_summary_list  # Add tag summary list
+                }
+                cache.set(cache_key, response_data, timeout=60*60)  # Cache for 1 hour
+                return Response(response_data)
+            else:
+                return Response({'error': 'Practitioner not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+
     @action(detail=True, methods=['get'])
     def reviews(self, request, pk=None):
         practitioner = self.get_object()

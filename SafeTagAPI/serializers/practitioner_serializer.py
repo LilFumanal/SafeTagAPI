@@ -12,7 +12,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organization
-        fields = ['name', 'addresses']
+        fields = ['api_organization_id', 'name', 'addresses']
 
 class PractitionerSerializer(serializers.ModelSerializer):
     addresses = PractitionerAddressSerializer(many=True)
@@ -54,22 +54,10 @@ class PractitionerSerializer(serializers.ModelSerializer):
 
         # Process and add organizations to the practitioner
         for organization_data in organizations_data:
-            org_addresses_data = organization_data.pop('addresses', [])
             organization, created = Organization.objects.update_or_create(
                 api_organization_id=organization_data.get('api_organization_id'),
                 defaults={'name': organization_data.get('name')}
             )
-            for org_address_data in org_addresses_data:
-                org_address, created = Practitioner_Address.objects.get_or_create(
-                    line=org_address_data['line'],
-                    city=org_address_data['city'],
-                    department=org_address_data['department'],
-                    defaults={
-                        'latitude': org_address_data.get('latitude'),
-                        'longitude': org_address_data.get('longitude'),
-                    }
-                )
-                organization.addresses.add(org_address)
             practitioner.organizations.add(organization)
 
         return practitioner

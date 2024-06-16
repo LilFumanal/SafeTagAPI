@@ -8,12 +8,13 @@ class Practitioner_Address(models.Model):
     department = models.BigIntegerField()
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
-    wheelchair_accessibility = models.BooleanField(null = True, blank = True, default = None)
+    wheelchair_accessibility = models.BooleanField(null=True, blank=True, default=None)
 
     def __str__(self):
-        return f"{self.line}, {self.city}, {self.postal_code}"
+        return f"{self.line}, {self.city}"
 
 class Organization(models.Model):
+    api_organization_id = models.CharField(unique=True)
     name = models.CharField(max_length=255)
     addresses = models.ManyToManyField(Practitioner_Address, blank=True)
 
@@ -40,6 +41,15 @@ class Practitioners(models.Model):
 
     def __str__(self):
         return f"{self.name} {self.surname}"
+    
+    def get_tag_summary(self):
+        # Fetch tag summary from Professional_Tag_Score
+        tag_summary = Professional_Tag_Score.objects.filter(id_practitioners=self).values(
+            'id_tag__type').annotate(
+            average_rating=models.Avg('score'),
+            total_reviews=models.Sum('review_count')
+        )
+        return list(tag_summary)
 
 
 class Professional_Tag_Score(models.Model):

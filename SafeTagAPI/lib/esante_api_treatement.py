@@ -1,9 +1,8 @@
-from collections import defaultdict
-from celery import shared_task
-from django.core.cache import cache
+import redis
 import requests
+from django.db import transaction
 from bs4 import BeautifulSoup
-from SafeTagAPI.serializers.practitioner_serializer import PractitionerSerializer, Practitioners
+from ..models.tag_model import load_initial_tags
 
 # Définir l'URL et les en-têtes d'authentification
 esante_api_url = "https://gateway.api.esante.gouv.fr/fhir"
@@ -14,7 +13,7 @@ mental_health_specialties = [
 ]
 specialty_filter = "specialty=" + ",".join(mental_health_specialties)
 inclusions = "?_include=PractitionerRole:organization"
-mos_api_url = "https://mos.esante.gouv.fr/NOS"
+cache = redis.StrictRedis(host='localhost', port=6379,db=0)
 
 
 # Envoyer la requête
@@ -31,7 +30,6 @@ def get_all_practitioners():
                     practitioners_list.append(practitioner_data)
             return practitioners_list
         else:
-            print("Je regarde toute la liste")
             print(f"Erreur {response.status_code} : {response.text}")
             return []
     except requests.exceptions.RequestException as e:
@@ -76,10 +74,19 @@ def get_organization_info(org_reference):
     response = requests.get(org_url, headers=headers)
     if response.status_code == 200:
         org_data = response.json()
-        org_addresses = collect_addresses(org_data.get("address", []))
-        return {"name": org_data.get("name", "N/A"),"api_id": org_data.get("id"), "addresses": org_addresses}, org_addresses
+        if org_data.get("address",[]) == None:
+            return None, None
+        else:
+            org_addresses = collect_addresses(org_data.get("address", []))
+            api_organization_id = org_data.get("id")
+            organization_info = {
+            "name": org_data.get("name", "N/A"),
+            "api_organization_id": api_organization_id,
+            "addresses": org_addresses
+            }
+        return organization_info, org_addresses
     else:
-        return "N/A", []
+        return None, None
 
 def get_specialities(specialties):
     specialities_list = []
@@ -109,10 +116,8 @@ def get_specialty_description(system, code):
         return f"Erreur de requête : {e}"
 
 def get_speciality_reimboursement_sector(codes):
-    for code_entry in codes:
-        for coding in code_entry.get("coding", []):
-            if coding.get("system") == "https://mos.esante.gouv.fr/NOS/TRE_R23-ModeExercice/FHIR/TRE-R23-ModeExercice":
-                return coding.get("code", "Aucun secteur renseigné")
+    #Pour trouver les secteurs de remboursement, nous devons visiblement passer par une api tierce. Par soucis de temps, nous le ferons plus tard .
+    # https://interop.esante.gouv.fr/ig/fhir/ror/mapping.html
     return "Aucun secteur renseigné"
 
 def collect_addresses(addresses):
@@ -134,7 +139,7 @@ def collect_addresses(addresses):
                     street_name_base = ext.get('valueString', "")
     
     # Combine components into a full address line
-            line = f"{house_number} {street_name_type} {street_name_base}".strip()
+        line = f"{house_number} {street_name_type} {street_name_base}".strip()
         city = address.get("city", "N/A")
         postal_code = address.get("postalCode", "N/A")
         department = get_department(postal_code)
@@ -200,41 +205,46 @@ def get_practitioner_details(api_practitioner_id):
         url = f"{esante_api_url}/PractitionerRole/{api_practitioner_id}"
         response = requests.get(url, headers=headers) 
         if response.status_code == 200:
-            practitioner_data = response.json()
-            extensions = practitioner_data.get("extension", [])
-            name, surname = extract_name_and_surname(extensions)
-            organization_reference = practitioner_data.get("organization", {}).get("reference", "N/A")
-            organization_info, org_addresses = get_organization_info(organization_reference)
-            
-            specialties = get_specialities(practitioner_data.get("specialty", []))
-            sector = get_speciality_reimboursement_sector(practitioner_data.get("code", []))
-            api_id = practitioner_data.get("id")
+            with transaction.atomic():
+                practitioner_data = response.json()
+                # cache.set('practitioners_data', practitioner_data)
+                extensions = practitioner_data.get("extension", [])
+                name, surname = extract_name_and_surname(extensions)
+                organization_reference = practitioner_data.get("organization", {}).get("reference", None)
+                organization_info, org_addresses = get_organization_info(organization_reference)
+                if not org_addresses:
+                    print("There isn't any address valid for this practitioner, so we can't register them in our database.")
+                    return None
+                specialties = get_specialities(practitioner_data.get("specialty", []))
+                sector = get_speciality_reimboursement_sector(practitioner_data.get("code", []))
+                api_id = practitioner_data.get("id")
 
-            # Prepare the data for serialization
-            data_for_serializer = {
-                "name": name,
-                "surname": surname,
-                "specialities": specialties,
-                "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
-                "reimboursement_sector": sector,
-                "addresses": org_addresses,
-                "organizations": [organization_info],
-                "api_id": api_id
-            }
-            print(data_for_serializer)
-            # Serialize and save the practitioner data
-            serializer = PractitionerSerializer(data=data_for_serializer)
-            if serializer.is_valid():
-                practitioner = serializer.save()
-                return practitioner
-            else:
-                print("Validation error:", serializer.errors)
-                return None
+                # Prepare the data for serialization
+                data_for_serializer = {
+                    "name": name,
+                    "surname": surname,
+                    "specialities": specialties,
+                    "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
+                    "reimboursement_sector": sector,
+                    "addresses": org_addresses,
+                    "organizations": [organization_info],
+                    "api_id": api_id
+                }
+                # Serialize and save the practitioner data
+
+                return data_for_serializer
         else:
-            print('Je regarde les détails des practitionners')
             print(f"Error {response.status_code} : {response.text}")
             return None
     except requests.RequestException:
-        return None
+        return requests.status_codes, requests.exceptions
+
+def get_practitioners_from_cache():
+    data = cache.get('practitioners_data')
+    if data:
+        return data
+    else:
+        get_all_practitioners()
+        return cache.get('practitioners_data')
     
-list = get_all_practitioners()
+get_all_practitioners()
