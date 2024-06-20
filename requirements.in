@@ -3,3 +3,8 @@ requests
 psycopg2
 django-environ
 djangorestframework
+beautifulsoup4
+celery
+sqlparse
+tzdata
+gunicorn

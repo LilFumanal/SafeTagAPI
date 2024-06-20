@@ -1,4 +1,3 @@
-import redis
 import requests
 from django.db import transaction
 from bs4 import BeautifulSoup
@@ -19,7 +18,6 @@ mental_health_specialties = [
 ]
 specialty_filter = "specialty=" + ",".join(mental_health_specialties)
 inclusions = "?_include=PractitionerRole:organization"
-cache = redis.StrictRedis(host="localhost", port=6379, db=0)
 
 
 # Envoyer la requête
