@@ -3,7 +3,6 @@ from django.db import transaction
 from bs4 import BeautifulSoup
 import aiohttp
 import asyncio
-from ..models.tag_model import load_initial_tags
 
 # Définir l'URL et les en-têtes d'authentification
 esante_api_url = "https://gateway.api.esante.gouv.fr/fhir"
