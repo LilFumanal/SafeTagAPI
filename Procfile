@@ -1,0 +1,1 @@
+web: gunicorn SafeTag.wsgi --log-file -
