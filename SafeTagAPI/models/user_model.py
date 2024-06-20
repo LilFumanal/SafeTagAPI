@@ -1,3 +1,4 @@
+import random
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
@@ -6,6 +7,9 @@ from django.contrib.auth.models import (
     Permission,
 )
 from django.db import models
+import requests
+from bs4 import BeautifulSoup
+from ..lib.color_list import color_list
 
 
 class CustomUserManager(BaseUserManager):
@@ -15,12 +19,12 @@ class CustomUserManager(BaseUserManager):
         if not email:
             raise ValueError("L'email est obligatoire.")
         email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+        user = self.model(username=self.get_unique_username(), email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password=None, **extra_fields):
+    def create_superuser(self, username, email, password, **extra_fields):
         """
         Create and return a superuser with an email, password, and admin privileges.
         """
@@ -28,6 +32,21 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault("is_superuser", True)
 
         return self.create_user(email, password, **extra_fields)
+
+    def get_unique_username():
+        color_names = color_list
+
+        while color_names:
+            # Select a random color name
+            username = random.choice(color_names)
+                
+                # Check if the username already exists in the User table
+            if not CustomUser.objects.filter(username=username).exists():
+                return username
+                # If the username is taken, remove it from the list to avoid selecting it again
+            color_names.remove(username)        
+            # If no unique username is found (highly unlikely), return a fallback name
+        return "UniqueColorUser"
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
@@ -49,8 +68,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         related_name="custom_user_permissions",  # Add related_name to avoid clashes
         blank=True,
     )
-    USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["username", "email"]
+    USERNAME_FIELD = "username"
+    REQUIRED_FIELDS = ["email"]
 
     def __str__(self):
-        return self.email
+        return self.username, self.email

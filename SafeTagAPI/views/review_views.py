@@ -7,14 +7,23 @@ from rest_framework.decorators import action
 from ..models.review_model import Review, Pathologie
 from ..models.tag_model import Review_Tag
 from ..models.practitioner_model import Practitioners
-from ..serializers.review_serializer import ReviewSerializer, PathologieSerializer, ReviewTagSerializer
-from ..serializers.practitioner_serializer import Practitioner_Address, PractitionerSerializer
+from ..serializers.review_serializer import (
+    ReviewSerializer,
+    PathologieSerializer,
+    ReviewTagSerializer,
+)
+from ..serializers.practitioner_serializer import (
+    Practitioner_Address,
+    PractitionerSerializer,
+)
 from ..lib.esante_api_treatement import get_practitioner_details
+
 
 class ReviewViewSet(viewsets.ModelViewSet):
     """
     Provides CRUD operations for reviews.
     """
+
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     # permission_classes = [IsAuthenticatedOrReadOnly]
@@ -23,13 +32,13 @@ class ReviewViewSet(viewsets.ModelViewSet):
         """
         Custom create method to handle fetching practitioner data from the API if not present.
         """
-        api_practitioner_id = request.data.get('id_practitioner')
-        tags = request.data.get('tags', [])
-        pathologies = request.data.get('pathologies', [])
-        address_id = request.data.get('id_address')
-        comment = request.data.get('comment')
-        review_date= date.today()
-        
+        api_practitioner_id = request.data.get("id_practitioner")
+        tags = request.data.get("tags", [])
+        pathologies = request.data.get("pathologies", [])
+        address_id = request.data.get("id_address")
+        comment = request.data.get("comment")
+        review_date = date.today()
+
         # Fetch practitioner data if it doesn't exist
         practitioner = Practitioners.objects.filter(api_id=api_practitioner_id).first()
         if not practitioner:
@@ -39,19 +48,25 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 if practitioner_serializer.is_valid():
                     practitioner = practitioner_serializer.save()
                 else:
-                    return Response(practitioner_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        practitioner_serializer.errors,
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             else:
-                return Response({'error': 'Practitioner data could not be fetched from the API.'}, status=status.HTTP_404_NOT_FOUND)
-        
+                return Response(
+                    {"error": "Practitioner data could not be fetched from the API."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
         # Create the review
         review_data = {
-            'id_practitioners': practitioner.id,
-            'review_date': review_date,
-            'comment': comment,
-            'tags': tags,
-            'pathologies': pathologies,
-            'id_address': address_id,
-            'id_user': 1  # Assuming user is authenticated and using `request.user`
+            "id_practitioners": practitioner.id,
+            "review_date": review_date,
+            "comment": comment,
+            "tags": tags,
+            "pathologies": pathologies,
+            "id_address": address_id,
+            "id_user": 1,  # Assuming user is authenticated and using `request.user`
             # 'id_user': request.user.id  # Assuming user is authenticated and using `request.user`
         }
         review_serializer = ReviewSerializer(data=review_data)
@@ -59,9 +74,8 @@ class ReviewViewSet(viewsets.ModelViewSet):
             review_serializer.save()
             return Response(review_serializer.data, status=status.HTTP_201_CREATED)
         return Response(review_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    
-    @action(detail=True, methods=['get'])
+
+    @action(detail=True, methods=["get"])
     def practitioner_reviews(self, request, pk=None):
         reviews = Review.objects.filter(id_practitioners_id=pk)
         serializer = self.get_serializer(reviews, many=True)

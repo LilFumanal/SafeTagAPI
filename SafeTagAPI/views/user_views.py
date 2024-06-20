@@ -5,12 +5,14 @@ from ..models.user_model import CustomUser
 from ..serializers.user_serializer import UsersSerializer
 
 User = CustomUser
+
+
 class UserViewSet(viewsets.ViewSet):
     """
     A viewset for user registration and profile management.
     """
 
-    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[permissions.AllowAny])
     def register(self, request):
         """
         Custom action for user registration.
@@ -20,6 +22,7 @@ class UserViewSet(viewsets.ViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 # class CustomTokenObtainPairView(TokenObtainPairView):
 #     """

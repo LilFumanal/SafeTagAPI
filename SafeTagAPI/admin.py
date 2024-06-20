@@ -1,5 +1,9 @@
 from django.contrib import admin
-from SafeTagAPI.models.practitioner_model import Practitioners, Professional_Tag_Score, Practitioner_Address
+from SafeTagAPI.models.practitioner_model import (
+    Practitioners,
+    Professional_Tag_Score,
+    Practitioner_Address,
+)
 from SafeTagAPI.models.review_model import Review
 from SafeTagAPI.models.tag_model import Tag, Review_Tag
 from SafeTagAPI.models.user_model import CustomUser
@@ -14,23 +18,37 @@ class PractitionersAdmin(admin.ModelAdmin):
         "surname",
         "specialities",
         "accessibilities",
-        "reimboursement_sector"
+        "reimboursement_sector",
     )
-    search_fields = ("name", "surname", "specialities", "addresses", "reimboursement_sector", "accessibilities")
-    list_filter = ("specialities", "addresses", "reimboursement_sector", "accessibilities")
+    search_fields = (
+        "name",
+        "surname",
+        "specialities",
+        "addresses",
+        "reimboursement_sector",
+        "accessibilities",
+    )
+    list_filter = (
+        "specialities",
+        "addresses",
+        "reimboursement_sector",
+        "accessibilities",
+    )
+
 
 @admin.register(Practitioner_Address)
 class PractitionnerAddressAdmin(admin.ModelAdmin):
-    list_display=(
+    list_display = (
         "line",
         "city",
         "department",
         "latitude",
         "longitude",
-        "wheelchair_accessibility"
+        "wheelchair_accessibility",
     )
-    search_fields=("line","city","department", "wheelchair_accessibility")
-    list_filter=("city", "department")
+    search_fields = ("line", "city", "department", "wheelchair_accessibility")
+    list_filter = ("city", "department")
+
 
 # Register the Professional_Tag_Score model
 @admin.register(Professional_Tag_Score)

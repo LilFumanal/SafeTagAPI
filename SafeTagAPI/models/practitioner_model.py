@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 
-    
+
 class Practitioner_Address(models.Model):
     line = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
@@ -13,6 +13,7 @@ class Practitioner_Address(models.Model):
     def __str__(self):
         return f"{self.line}, {self.city}"
 
+
 class Organization(models.Model):
     api_organization_id = models.CharField(unique=True)
     name = models.CharField(max_length=255)
@@ -20,9 +21,12 @@ class Organization(models.Model):
 
     def __str__(self):
         return self.name
-    
+
+
 def default_accessibilities():
     return {"LSF": "Unknown", "Visio": "Unknown"}
+
+
 class Practitioners(models.Model):
     name = models.CharField(max_length=50)
     surname = models.CharField(max_length=50)
@@ -41,24 +45,32 @@ class Practitioners(models.Model):
 
     def __str__(self):
         return f"{self.name} {self.surname}"
-    
-    def get_tag_summary(self):
-        # Fetch tag summary from Professional_Tag_Score
-        tag_summary = Professional_Tag_Score.objects.filter(id_practitioners=self).values(
-            'id_tag__type').annotate(
-            average_rating=models.Avg('score'),
-            total_reviews=models.Sum('review_count')
+
+
+    def get_tag_averages(self):
+        from models import Review_Tag
+        # Aggregate average ratings for each tag related to this practitioner
+        tag_stats = Review_Tag.objects.filter(id_review__id_practitioners=self).values('id_tag__type').annotate(
+            average_rating=models.Avg('rating')
         )
-        return list(tag_summary)
+
+        # Format the results
+        tag_averages = []
+        for stat in tag_stats:
+            tag_averages.append({
+                'tag': stat['id_tag__type'],
+                'average_rating': stat['average_rating']
+            })
+        return tag_averages
 
 
 class Professional_Tag_Score(models.Model):
     id_practitioners: models.ForeignKey = models.ForeignKey(
         "Practitioners", on_delete=models.CASCADE
     )
-    id_tag= models.ForeignKey("Tag", on_delete=models.CASCADE)
-    score= models.IntegerField(default=0)
-    review_count= models.IntegerField(default=0)
+    id_tag = models.ForeignKey("Tag", on_delete=models.CASCADE)
+    score = models.IntegerField(default=0)
+    review_count = models.IntegerField(default=0)
 
     class Meta:
         unique_together = (("id_practitioners", "id_tag"),)

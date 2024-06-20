@@ -29,6 +29,6 @@ router.register(r"practitioner", PractitionerViewSet)
 router.register(r"reviews", ReviewViewSet)
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("admin", admin.site.urls),
 ]
 urlpatterns += router.urls
