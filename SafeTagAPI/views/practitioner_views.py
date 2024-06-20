@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework import viewsets, filters, status
+from rest_framework import viewsets, filters, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -33,20 +33,28 @@ class PractitionerViewSet(viewsets.ModelViewSet):
         "specialities",
         "addresses__city",
         "addresses__department",
-        "organizations__name",
+        "addresses__wheelchair_accesibility",
+        "accessibilites"
     ]
     ordering_fields = ["name", "surname", "api_id"]
 
-    @action(
-        detail=False, methods=["post"], url_path="fetch-from-api/(?P<api_id>[^/.]+)"
-    )
-    def fetch_from_api(self, request, api_id=None):
+    def create(self, request, *args, **kwargs):
+        api_id = request.data.get('api_id')
+        if not api_id:
+            return Response(
+                {"error": "API ID is required to fetch practitioner details."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         practitioner_data = get_practitioner_details(api_id)
+        if practitioner_data is None:
+            return Response(
+                {"error": "Failed to fetch practitioner details from the external API."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         serializer = PractitionerSerializer(data=practitioner_data)
-
         if serializer.is_valid():
             practitioner = serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(PractitionerSerializer(practitioner).data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -87,7 +95,6 @@ class PractitionerViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": "Practitioner not found"}, status=status.HTTP_404_NOT_FOUND
             )
-
         practitioner.accessibilities = accessibilities
         practitioner.save()
         return Response(
@@ -95,7 +102,7 @@ class PractitionerViewSet(viewsets.ModelViewSet):
         )
 
 
-class PractitionerAddressViewSet(viewsets.ModelViewSet):
+class PractitionerAddressViewSet(mixins.UpdateModelMixin, mixins.RetrieveModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     """
     Allows updating only the wheelchair accessibility for Practitioner Addresses.
     """
@@ -103,7 +110,7 @@ class PractitionerAddressViewSet(viewsets.ModelViewSet):
     queryset = Practitioner_Address.objects.all()
     serializer_class = PractitionerAddressSerializer
     filter_backends = [filters.SearchFilter]
-    search_fields = ["line", "city", "department"]
+    search_fields = ["line", "city", "department", "wheelchair_accessibility"]
 
     def update(self, request, *args, **kwargs):
         """

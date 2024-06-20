@@ -19,12 +19,13 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework import routers
 
-from SafeTagAPI.views.practitioner_views import PractitionerViewSet
+from SafeTagAPI.views.practitioner_views import PractitionerViewSet, PractitionerAddressViewSet
 from SafeTagAPI.views.review_views import ReviewViewSet
 from SafeTagAPI.views.user_views import UserViewSet
 
 router = routers.DefaultRouter()
 router.register(r"users", UserViewSet, basename="user")
+router.register(r'addresses', PractitionerAddressViewSet, basename='address')
 router.register(r"practitioner", PractitionerViewSet)
 router.register(r"reviews", ReviewViewSet)
 
