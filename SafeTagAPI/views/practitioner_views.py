@@ -2,7 +2,6 @@ from django.shortcuts import render
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.core.cache import cache
 
 from ..models.tag_model import Tag
 from ..models.practitioner_model import (
@@ -52,27 +51,19 @@ class PractitionerViewSet(viewsets.ModelViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, *args, **kwargs):
-        api_practitioner_id = kwargs["pk"]
         practitioner = self.get_object()
-        cache_key = f"practitioner_{api_practitioner_id}"
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            return Response(cached_data)
-        else:
-            # Fetch from API and cache the result
-            practitioner_data = PractitionerSerializer(practitioner).data
-            if practitioner_data:
-                tag_averages = practitioner.get_tag_averages()
-                response_data = {
-                    **practitioner_data,  # Include all practitioner fields
+        practitioner_data = PractitionerSerializer(practitioner).data
+        if practitioner_data:
+            tag_averages = practitioner.get_tag_averages()
+            response_data = {
+                **practitioner_data,  # Include all practitioner fields
                     "tag_summary_list": tag_averages,  # Add tag summary list
-                }
-                cache.set(cache_key, response_data, timeout=60 * 60)  # Cache for 1 hour
-                return Response(response_data)
-            else:
-                return Response(
-                    {"error": "Practitioner not found"},
-                    status=status.HTTP_404_NOT_FOUND,
+            }
+            return Response(response_data)
+        else:
+            return Response(
+                {"error": "Practitioner not found"},
+                status=status.HTTP_404_NOT_FOUND,
                 )
 
     @action(detail=True, methods=["get"])

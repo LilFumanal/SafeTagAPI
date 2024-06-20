@@ -1,6 +1,8 @@
 import requests
 from django.db import transaction
 from bs4 import BeautifulSoup
+import aiohttp
+import asyncio
 from ..models.tag_model import load_initial_tags
 
 # Définir l'URL et les en-têtes d'authentification
@@ -21,25 +23,26 @@ inclusions = "?_include=PractitionerRole:organization"
 
 
 # Envoyer la requête
-def get_all_practitioners():
+async def get_all_practitioners():
     url = f"{esante_api_url}/PractitionerRole?{specialty_filter}{inclusions}"
-    response = requests.get(url, headers=headers)
-    try:
-        if response.status_code == 200:
-            data = response.json()
-            practitioners_list = []
-            if "entry" in data:
-                for entry in data["entry"]:
-                    practitioner_data = process_practitioner_entry(entry)
-                    practitioners_list.append(practitioner_data)
-            return practitioners_list
-        else:
-            return f"Erreur {response.status_code} : {response.text}"
-    except requests.exceptions.RequestException as e:
-        return f"Request failed: {e}"
+    async with aiohttp.ClientSession(headers=headers) as session:
+        async with session.get(url) as response:
+            try:
+                if response.status_code == 200:
+                    data = response.json()
+                    practitioners_list = []
+                    if "entry" in data:
+                        for entry in data["entry"]:
+                            practitioner_data = process_practitioner_entry(entry)
+                            practitioners_list.append(practitioner_data)
+                    return practitioners_list
+                else:
+                    return f"Erreur {response.status_code} : {response.text}"
+            except aiohttp.ClientError as e:
+                return f"Request failed: {e}"
 
 
-def process_practitioner_entry(entry):
+async def process_practitioner_entry(entry):
     practitioner_role = entry.get("resource", {})
     api_id = practitioner_role.get("id")
 
@@ -48,8 +51,8 @@ def process_practitioner_entry(entry):
         "reference", "N/A"
     )
     organization_info, org_addresses = get_organization_info(organization_reference)
-    specialties = get_specialities(practitioner_role.get("specialty", []))
-    sector = get_speciality_reimboursement_sector(practitioner_role.get("code", []))
+    specialties = await get_specialities(practitioner_role.get("specialty", []))
+    sector = await get_speciality_reimboursement_sector(practitioner_role.get("code", []))
 
     practitioner_data = {
         "name": name,
@@ -79,27 +82,28 @@ def extract_name_and_surname(extensions):
     return name, surname
 
 
-def get_organization_info(org_reference):
+async def get_organization_info(org_reference):
     org_url = f"{esante_api_url}/{org_reference}"
-    response = requests.get(org_url, headers=headers)
-    if response.status_code == 200:
-        org_data = response.json()
-        if org_data.get("address", []) == None:
-            return None, None
-        else:
-            org_addresses = collect_addresses(org_data.get("address", []))
-            api_organization_id = org_data.get("id")
-            organization_info = {
-                "name": org_data.get("name", "N/A"),
-                "api_organization_id": api_organization_id,
-                "addresses": org_addresses,
-            }
-        return organization_info, org_addresses
-    else:
-        return None, None
+    async with aiohttp.ClientSession(headers=headers) as session:
+        async with session.get(org_url) as response:
+            if response.status_code == 200:
+                org_data = response.json()
+                if org_data.get("address", []) == None:
+                    return None, None
+                else:
+                    org_addresses = collect_addresses(org_data.get("address", []))
+                    api_organization_id = org_data.get("id")
+                    organization_info = {
+                        "name": org_data.get("name", "N/A"),
+                        "api_organization_id": api_organization_id,
+                        "addresses": org_addresses,
+                    }
+                return organization_info, org_addresses
+            else:
+                return None, None
 
 
-def get_specialities(specialties):
+async def get_specialities(specialties):
     specialities_list = []
     for specialty in specialties:
         for coding in specialty.get("coding", []):
@@ -110,25 +114,26 @@ def get_specialities(specialties):
     return specialities_list
 
 
-def get_specialty_description(system, code):
+async def get_specialty_description(system, code):
     try:
-        response_dir = requests.get(system, timeout=30)
-        soup = BeautifulSoup(response_dir.text, "html.parser")
-        json_files = [
-            a["href"]
-            for a in soup.find_all("a", href=True)
-            if a["href"].endswith(".json")
-        ]
-        json_url = f"{system}/{json_files[0]}"
-        response = requests.get(json_url, timeout=30)
-        if response.status_code == 200:
-            data = response.json()
-            for concept in data.get("concept", []):
-                if concept.get("code") == code:
-                    return concept.get("display", "Description non trouvée")
-        else:
-            return response.status_code
-    except requests.exceptions.RequestException as e:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(system, timeout=30) as response_dir:
+                soup = BeautifulSoup(response_dir.text, "html.parser")
+                json_files = [
+                    a["href"]
+                    for a in soup.find_all("a", href=True)
+                    if a["href"].endswith(".json")
+                ]
+                json_url = f"{system}/{json_files[0]}"
+                async with session.get(json_url, timeout=30) as response:
+                    if response.status_code == 200:
+                        data = response.json()
+                        for concept in data.get("concept", []):
+                            if concept.get("code") == code:
+                                return concept.get("display", "Description non trouvée")
+                    else:
+                        return response.status_code
+    except aiohttp.ClientError as e:
         return f"Erreur de requête : {e}"
 
 
@@ -231,51 +236,47 @@ def get_department(postal_code):
     return postal_code[:2]
 
 
-def get_practitioner_details(api_practitioner_id):
+async def get_practitioner_details(api_practitioner_id):
     try:
         url = f"{esante_api_url}/PractitionerRole/{api_practitioner_id}"
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            with transaction.atomic():
-                practitioner_data = response.json()
-                extensions = practitioner_data.get("extension", [])
-                name, surname = extract_name_and_surname(extensions)
-                organization_reference = practitioner_data.get("organization", {}).get(
-                    "reference", None
-                )
-                organization_info, org_addresses = get_organization_info(
-                    organization_reference
-                )
-                if not org_addresses:
-                    print(
-                        "There isn't any address valid for this practitioner, so we can't register them in our database."
-                    )
-                    return None
-                specialties = get_specialities(practitioner_data.get("specialty", []))
-                sector = get_speciality_reimboursement_sector(
-                    practitioner_data.get("code", [])
-                )
-                api_id = practitioner_data.get("id")
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.get(url) as response:
+                if response.status_code == 200:
+                    with transaction.atomic():
+                        practitioner_data = await response.json()
+                        extensions = practitioner_data.get("extension", [])
+                        name, surname = extract_name_and_surname(extensions)
+                        organization_reference = practitioner_data.get("organization", {}).get(
+                            "reference", None
+                        )
+                        organization_info, org_addresses = await get_organization_info(
+                            organization_reference
+                        )
+                        if not org_addresses:
+                            print(
+                                "There isn't any address valid for this practitioner, so we can't register them in our database."
+                            )
+                            return None
+                        specialties = await get_specialities(practitioner_data.get("specialty", []))
+                        sector = get_speciality_reimboursement_sector(
+                            practitioner_data.get("code", [])
+                        )
+                        api_id = practitioner_data.get("id")
+                        # Prepare the data for serialization
+                        data_for_serializer = {
+                            "name": name,
+                            "surname": surname,
+                            "specialities": specialties,
+                            "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
+                            "reimboursement_sector": sector,
+                            "addresses": org_addresses,
+                            "organizations": [organization_info],
+                            "api_id": api_id,
+                        }
+                        # Serialize and save the practitioner data
 
-                # Prepare the data for serialization
-                data_for_serializer = {
-                    "name": name,
-                    "surname": surname,
-                    "specialities": specialties,
-                    "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
-                    "reimboursement_sector": sector,
-                    "addresses": org_addresses,
-                    "organizations": [organization_info],
-                    "api_id": api_id,
-                }
-                # Serialize and save the practitioner data
-
-                return data_for_serializer
-        else:
-            print(f"Error {response.status_code} : {response.text}")
-            return None
-    except requests.RequestException:
-        return requests.status_codes, requests.exceptions
-
-
-get_all_practitioners()
+                        return data_for_serializer
+                else:
+                    return f"Error {response.status} : {await response.text()}"
+    except aiohttp.ClientError as e:
+        return f"Request failed: {e}"
