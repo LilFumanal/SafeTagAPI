@@ -22,7 +22,7 @@ inclusions = "?_include=PractitionerRole:organization"
 
 # Envoyer la requête
 def get_all_practitioners():
-    url = f"{esante_api_url}/PractitionerRole?{specialty_filter}"
+    url = f"{esante_api_url}/PractitionerRole?{specialty_filter}{inclusions}"
     response = requests.get(url, headers=headers)
     try:
         if response.status_code == 200:
@@ -34,11 +34,9 @@ def get_all_practitioners():
                     practitioners_list.append(practitioner_data)
             return practitioners_list
         else:
-            print(f"Erreur {response.status_code} : {response.text}")
-            return []
+            return f"Erreur {response.status_code} : {response.text}"
     except requests.exceptions.RequestException as e:
-        print(f"Request failed: {e}")
-        return []
+        return f"Request failed: {e}"
 
 
 def process_practitioner_entry(entry):
@@ -240,7 +238,6 @@ def get_practitioner_details(api_practitioner_id):
         if response.status_code == 200:
             with transaction.atomic():
                 practitioner_data = response.json()
-                # cache.set('practitioners_data', practitioner_data)
                 extensions = practitioner_data.get("extension", [])
                 name, surname = extract_name_and_surname(extensions)
                 organization_reference = practitioner_data.get("organization", {}).get(
@@ -279,15 +276,6 @@ def get_practitioner_details(api_practitioner_id):
             return None
     except requests.RequestException:
         return requests.status_codes, requests.exceptions
-
-
-def get_practitioners_from_cache():
-    data = cache.get("practitioners_data")
-    if data:
-        return data
-    else:
-        get_all_practitioners()
-        return cache.get("practitioners_data")
 
 
 get_all_practitioners()
