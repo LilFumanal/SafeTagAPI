@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand
 from ...models.tag_model import Tag
 
-def load_initial_tags():
+class Command(BaseCommand):
+    help = "Initialize the fixed set of pathologies in the database"
     initial_tags = [
         "religion",
         "genre",
@@ -15,6 +16,7 @@ def load_initial_tags():
         "apparence",
         "handicap",
     ]
-    for tag in initial_tags:
-        Tag.objects.get_or_create(type=tag, defaults={"description": tag.capitalize()})
-
+    def handle(self, *args, **kwargs):
+        for tag in self.initial_tags:
+            Tag.objects.get_or_create(type=tag, defaults={"description": tag.capitalize()})
+        self.stdout.write(self.style.SUCCESS("Successfully initialized tags"))
