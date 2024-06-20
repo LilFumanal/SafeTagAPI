@@ -16,7 +16,7 @@ from ..serializers.practitioner_serializer import (
     OrganizationSerializer,
 )
 from ..serializers.review_serializer import ReviewSerializer
-from ..lib.esante_api_treatement import get_practitioner_details
+from ..lib.esante_api_treatement import get_practitioner_details, get_all_practitioners, base_url
 
 
 class PractitionerViewSet(viewsets.ModelViewSet):
@@ -37,7 +37,18 @@ class PractitionerViewSet(viewsets.ModelViewSet):
         "accessibilites"
     ]
     ordering_fields = ["name", "surname", "api_id"]
-
+    
+    async def get(self, request, *args, **kwargs):
+        page_url = request.query_params.get('page_url', None)
+        if not page_url:
+            get_all_practitioners(base_url)
+        
+        practitioners, next_page_url = await get_all_practitioners(page_url)
+        return Response({
+            'practitioners': practitioners,
+            'next_page_url': next_page_url
+        }, status=status.HTTP_200_OK)
+        
     def create(self, request, *args, **kwargs):
         api_id = request.data.get('api_id')
         if not api_id:

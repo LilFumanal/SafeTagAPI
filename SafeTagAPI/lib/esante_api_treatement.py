@@ -20,10 +20,11 @@ mental_health_specialties = [
 specialty_filter = "specialty=" + ",".join(mental_health_specialties)
 inclusions = "?_include=PractitionerRole:organization"
 
+base_url = f"{esante_api_url}/PractitionerRole?{specialty_filter}{inclusions}"
 
 # Envoyer la requête
-async def get_all_practitioners():
-    url = f"{esante_api_url}/PractitionerRole?{specialty_filter}{inclusions}"
+async def get_all_practitioners(url):
+    next_page = ""
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.get(url) as response:
             try:
@@ -34,7 +35,12 @@ async def get_all_practitioners():
                         for entry in data["entry"]:
                             practitioner_data = process_practitioner_entry(entry)
                             practitioners_list.append(practitioner_data)
-                    return practitioners_list
+                    if 'link' in data:
+                        for link in data['link']:
+                            if link['relation'] == 'next':
+                                next_page_url = link['url']
+                                break
+                    return practitioners_list, next_page
                 else:
                     return f"Erreur {response.status_code} : {response.text}"
             except aiohttp.ClientError as e:
