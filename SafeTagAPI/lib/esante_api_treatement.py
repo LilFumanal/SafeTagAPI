@@ -29,11 +29,11 @@ async def get_all_practitioners(url):
         async with session.get(url) as response:
             try:
                 if response.status == 200:
-                    data = response.json()
+                    data = await response.json()
                     practitioners_list = []
                     if "entry" in data:
                         for entry in data["entry"]:
-                            practitioner_data = process_practitioner_entry(entry)
+                            practitioner_data = await process_practitioner_entry(entry)
                             practitioners_list.append(practitioner_data)
                     if 'link' in data:
                         for link in data['link']:
@@ -55,9 +55,9 @@ async def process_practitioner_entry(entry):
     organization_reference = practitioner_role.get("organization", {}).get(
         "reference", "N/A"
     )
-    organization_info, org_addresses = get_organization_info(organization_reference)
+    organization_info, org_addresses = await get_organization_info(organization_reference)
     specialties = await get_specialities(practitioner_role.get("specialty", []))
-    sector = await get_speciality_reimboursement_sector(practitioner_role.get("code", []))
+    sector = get_speciality_reimboursement_sector(practitioner_role.get("code", []))
 
     practitioner_data = {
         "name": name,
@@ -93,7 +93,7 @@ async def get_organization_info(org_reference):
         async with session.get(org_url) as response:
             if response.status == 200:
                 org_data = await response.json()
-                if org_data.get("address", []) == None:
+                if org_data.get("address", []) is None:
                     return None, None
                 else:
                     org_addresses = collect_addresses(org_data.get("address", []))
@@ -123,7 +123,7 @@ async def get_specialty_description(system, code):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(system, timeout=30) as response_dir:
-                soup = BeautifulSoup(response_dir.text, "html.parser")
+                soup = BeautifulSoup(await response_dir.text(), "html.parser")
                 json_files = [
                     a["href"]
                     for a in soup.find_all("a", href=True)
@@ -202,11 +202,7 @@ def get_map_coordinates(address):
 def get_department(postal_code):
     if not postal_code:
         return "N/A"
-
-    # Ensure the postal code is a string to handle cases where it's provided as an integer
     postal_code = str(postal_code)
-
-    # Handle overseas departments and territories
     if postal_code.startswith("97") or postal_code.startswith("98"):
         if postal_code[:3] == "971":
             return "971"  # Guadeloupe
@@ -236,7 +232,6 @@ def get_department(postal_code):
             return "989"  # Clipperton Island
         else:
             return postal_code[:3]  # Default to the first three digits
-
     # For metropolitan France, use the first two digits
     return postal_code[:2]
 
@@ -285,6 +280,3 @@ async def get_practitioner_details(api_practitioner_id):
     except aiohttp.ClientError as e:
         return f"Request failed: {e}"
     
-    
-prac = asyncio.run(get_practitioner_details("005-3622192-6726113"))
-print(prac)

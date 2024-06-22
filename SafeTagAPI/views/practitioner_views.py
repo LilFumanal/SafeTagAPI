@@ -38,25 +38,25 @@ class PractitionerViewSet(viewsets.ModelViewSet):
     ]
     ordering_fields = ["name", "surname", "api_id"]
     
-    async def get(self, request, *args, **kwargs):
+    async def list(self, request, *args, **kwargs):
         page_url = request.query_params.get('page_url', None)
         if not page_url:
             get_all_practitioners(base_url)
         
         practitioners, next_page_url = await get_all_practitioners(page_url)
         return Response({
-            'practitioners': practitioners,
+            'practitioners': [await p for p in practitioners],
             'next_page_url': next_page_url
         }, status=status.HTTP_200_OK)
         
-    def create(self, request, *args, **kwargs):
+    async def create(self, request, *args, **kwargs):
         api_id = request.data.get('api_id')
         if not api_id:
             return Response(
                 {"error": "API ID is required to fetch practitioner details."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        practitioner_data = get_practitioner_details(api_id)
+        practitioner_data = await get_practitioner_details(api_id)
         if practitioner_data is None:
             return Response(
                 {"error": "Failed to fetch practitioner details from the external API."},
@@ -93,7 +93,7 @@ class PractitionerViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=False, methods=["post"])
-    def update_accessibilities(self, request):
+    async def update_accessibilities(self, request):
         """
         Allows users to update accessibility details for practitioners.
         """
@@ -101,13 +101,13 @@ class PractitionerViewSet(viewsets.ModelViewSet):
         accessibilities = request.data.get("accessibilities")
 
         try:
-            practitioner = Practitioners.objects.get(api_id=api_id)
+            practitioner = await Practitioners.objects.aget(api_id=api_id)
         except Practitioners.DoesNotExist:
             return Response(
                 {"error": "Practitioner not found"}, status=status.HTTP_404_NOT_FOUND
             )
         practitioner.accessibilities = accessibilities
-        practitioner.save()
+        practitioner.asave()
         return Response(
             PractitionerSerializer(practitioner).data, status=status.HTTP_200_OK
         )
