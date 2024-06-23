@@ -9,13 +9,21 @@ https://docs.djangoproject.com/en/5.0/howto/deployment/asgi/
 
 import os
 import asyncio
-
+import logging
 from django.core.asgi import get_asgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "SafeTag.settings")
 
 application = get_asgi_application()
 
+logging.basicConfig(
+    level=logging.DEBUG,  # Set to DEBUG to capture all types of log messages
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Log message format
+    handlers=[
+        logging.StreamHandler(),  # Log to stderr (console)
+        logging.FileHandler("app.log", mode='a'),  # Log to a file (append each time)
+    ]
+)
 
 def sync_cancel_pending_tasks():
     # Get the current event loop
@@ -38,4 +46,4 @@ def sync_cancel_pending_tasks():
     print("All pending tasks have been cancelled.")
 
 # Example usage: Call this function before shutdown or during a critical section
-sync_cancel_pending_tasks()
+# sync_cancel_pending_tasks()

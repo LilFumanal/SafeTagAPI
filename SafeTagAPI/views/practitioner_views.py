@@ -8,39 +8,27 @@ from django.views import View
 from django.template.loader import render_to_string
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.core.cache import cache
+import psutil
 import json
-import logging
-
-from SafeTagAPI.models.review_model import Review
-
+from ..lib.logger import Logger
+from ..models.review_model import Review
 from ..models.tag_model import Tag
 from ..models.practitioner_model import (
     Practitioners,
     Practitioner_Address,
-    Organization,
-    Professional_Tag_Score,
-)
+    Organization)
 from ..serializers.practitioner_serializer import (
     PractitionerSerializer,
     PractitionerAddressSerializer,
     OrganizationSerializer,
 )
 from ..serializers.review_serializer import ReviewSerializer
-from ..lib.esante_api_treatement import get_practitioner_details, get_all_practitioners, base_url
+from ..lib.esante_api_treatement import get_practitioner_details, get_all_practitioners
 
     
-import psutil
 
-logging.basicConfig(
-    level=logging.DEBUG,  # Set to DEBUG to capture all types of log messages
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Log message format
-    handlers=[
-        logging.StreamHandler(),  # Log to stderr (console)
-        logging.FileHandler("app.log", mode='w'),  # Log to a file (overwrite each time)
-    ]
-)
-
-logger = logging.getLogger(__name__)
+logger = Logger(__name__).get_logger()
+cache.clear()
 
 def log_open_files():
     process = psutil.Process(os.getpid())

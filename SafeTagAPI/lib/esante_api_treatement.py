@@ -137,59 +137,56 @@ def get_specialities(specialties):
     for specialty in specialties:
         for coding in specialty.get("coding", []):
             code = coding.get("code", "N/A")
-            system = coding.get("system")
-            description = get_speciality_description(system, code)
-            specialities_list.append(description)
+            lien = coding.get("system")
+            if lien == 'https://mos.esante.gouv.fr/NOS/TRE_R04-TypeSavoirFaire/FHIR/TRE-R04-TypeSavoirFaire':
+                continue
+            description = get_speciality_description(lien, code)
+            if description:  # Ensure we only add valid descriptions
+                specialities_list.append(description)
+            else:
+                logger.debug("No description found for code: %s, lien: %s", code, lien)
     return specialities_list
 
 
-def get_speciality_description(system, code):
-    logger.info(f"{system}{code}")
+def get_speciality_description(lien, code):
     # Generate a cache key based on the parameters
-    cache_key = f"specialty_{system}_{code}"
+    cache_key = f"specialty_{lien}_{code}"
     # Try to get the result from the cache
     cached_result = cache.get(cache_key)
     if cached_result is not None:
         return cached_result
     try:
-        response_dir=requests.get(system, timeout = 30)
-        logger.info(f"Response for directory fetch: {response_dir.status_code}")
-        # Ensure response is valid and log any issues
-        if response_dir.status_code != 200:
-            logger.error(f"Failed to fetch directory page: {response_dir.status_code}")
-            return f"Failed to fetch directory page: {response_dir.status_code}"
-        try:
-            soup = BeautifulSoup(response_dir.text(), "html.parser")
-        except:
-            return logger.error("Impossible de trouver le code.")
+        response_dir=requests.get(str(lien), timeout = 30)
+        soup = BeautifulSoup(response_dir.text, "html.parser")
         json_files = [
             a["href"]
             for a in soup.find_all("a", href=True)                
             if a["href"].endswith(".json")
         ]
-        if not json_files:
-            logger.error("No .json files found in the directory page.")
-            return "No .json files found."
-        json_url = f"{system}/{json_files[0]}"
-        response = requests.get(json_url, timeout=30)
-        if response.status_code == 200:
-            data = response.json()
-            for concept in data.get("concept", []):
-                if concept.get("code") == code:
-                    description =  concept.get("display", "Description non trouvée")
-                    cache.set(cache_key, description, timeout=24*60*60)
+        json_url = lien + '/' + json_files[0]
+        logger.debug("Url JSON %s", json_url)
+        json_response = requests.get(json_url)
+        json_response.raise_for_status()
+        json_data = json_response.json()            
+        if 'concept' in json_data:
+            logger.debug("OUIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
+            concepts = json_data['concept']
+            for concept in concepts:
+                code = concept.get('code')
+                description = concept.get('display') or concept.get('description')
+                cache.set(cache_key, description)
+                logger.debug("UN RESULTAT A ETE AJOUTE MAIS MON DIEU MAIS C'EST INCROYABLE")
+                logger.debug(description)
+            return description
         else:
-            logger.error(f"Failed to fetch JSON file: {response.status_code}")
-            return f"Failed to fetch JSON file: {response.status_code}"
+            return "Description non trouvée"
     except requests.exceptions.RequestException as e:
-        logger.error(f"Request exception: {e}")
+        logger.error("Request exception: %s", {e})
         return f"Request failed: {e}"
     
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+        logger.error("Unexpected error: %s ",{e}, exc_info=True)
         return f"Unexpected error: {e}"
-
-    return "Description non trouvée"
 
 def get_speciality_reimboursement_sector(codes):
     # Pour trouver les secteurs de remboursement, nous devons visiblement passer par une api tierce. Par soucis de temps, nous le ferons plus tard .
@@ -326,4 +323,3 @@ async def get_practitioner_details(api_practitioner_id):
                     return f"Error {response.status} : {await response.text()}"
     except aiohttp.ClientError as e:
         return f"Request failed: {e}"
-    
