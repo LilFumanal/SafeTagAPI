@@ -1,3 +1,4 @@
+import os
 from django.shortcuts import render
 from rest_framework import viewsets, filters, status, mixins
 from rest_framework.decorators import action
@@ -8,6 +9,7 @@ from django.template.loader import render_to_string
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.core.cache import cache
 import json
+import logging
 
 from ..models.tag_model import Tag
 from ..models.practitioner_model import (
@@ -27,30 +29,49 @@ from ..lib.esante_api_treatement import get_practitioner_details, get_all_practi
     
 import psutil
 
+logging.basicConfig(
+    level=logging.DEBUG,  # Set to DEBUG to capture all types of log messages
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Log message format
+    handlers=[
+        logging.StreamHandler(),  # Log to stderr (console)
+        logging.FileHandler("app.log", mode='w'),  # Log to a file (overwrite each time)
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
 def log_open_files():
-    p = psutil.Process()
-    print("Open files:", len(p.open_files()))
-    print("Open connections:", len(p.connections()))
+    process = psutil.Process(os.getpid())
+    open_files = process.open_files()
+    print(f"Open files: {len(open_files)}")
+    open_connections = process.connections()
+    print(f"Open connections: {len(open_connections)}")
     
 class PractitionerAsyncViews(View):
     async def get(self, request, *args, **kwargs):
         try:
             page_url = request.GET.get('page_url', '')
             log_open_files()
-            cache_key = f"practitioners:{page_url}"
+            if page_url:
+                cache_key = f"practitioners:{page_url}"
+            else:
+                cache_key = f"practitioners:base_url"
+            logger.info(f"Generated cache key: {cache_key}")
             cached_data = cache.get(cache_key)
+            logger.info("Checked cache.")
             if cached_data:
+                logger.info(f"Cache hit for key: {cache_key}.")
                 return JsonResponse(cached_data, status=200)
+            logger.info("Cache miss. Fetching data from API.")
             practitioners, next_page_url = await get_all_practitioners("https://gateway.api.esante.gouv.fr/fhir/PractitionerRole?specialty=SM38,SM42,SM43,SCD03,SCD09,SCD10,SCD08,SM39?_include=PractitionerRole:organization")
-            serialized_practitioners = [PractitionerSerializer(practitioner).data for practitioner in practitioners]
             response_data = {
-                'practitioners': serialized_practitioners,
+                'practitioners': practitioners,
                 'next_page_url': next_page_url
             }
-            cache.set(cache_key, response_data, timeout=60*60) #cache une heure
+            cache.set(cache_key, response_data, timeout=24*60*60) #cache 24h
             return JsonResponse(response_data, status=200)
         except Exception as e:
-            print("Error during async operation:", e)
+            logger(f"Error during async operation: {e}")
             return JsonResponse({'error': e}, status=500)
         finally:
             log_open_files()

@@ -38,4 +38,4 @@ def sync_cancel_pending_tasks():
     print("All pending tasks have been cancelled.")
 
 # Example usage: Call this function before shutdown or during a critical section
-# sync_cancel_pending_tasks()
+sync_cancel_pending_tasks()
