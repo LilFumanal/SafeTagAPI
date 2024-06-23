@@ -2,6 +2,11 @@ from django.shortcuts import render
 from rest_framework import viewsets, filters, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from asgiref.sync import sync_to_async
+from django.views import View
+from django.template.loader import render_to_string
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
+import json
 
 from ..models.tag_model import Tag
 from ..models.practitioner_model import (
@@ -19,7 +24,49 @@ from ..serializers.review_serializer import ReviewSerializer
 from ..lib.esante_api_treatement import get_practitioner_details, get_all_practitioners, base_url
 
 
-class PractitionerViewSet(viewsets.ModelViewSet):
+class PractitionerAsyncViews(View):
+    async def get(self, request, *args, **kwargs):
+        page_url = request.GET.get('page_url', '')
+        print(page_url)
+        try:
+            practitioners, next_page_url = await get_all_practitioners("https://gateway.api.esante.gouv.fr/fhir/PractitionerRole?specialty=SM38,SM42,SM43,SCD03,SCD09,SCD10,SCD08,SM39?_include=PractitionerRole:organization")
+            serialized_practitioners = [PractitionerSerializer(practitioner).data for practitioner in practitioners]
+            return JsonResponse({
+                'practitioners': serialized_practitioners,
+                'next_page_url': next_page_url
+            }, status=200)
+        except Exception as e:
+            print("Error during async operation:", e)
+            return JsonResponse({'error': e}, status=500)
+        
+    async def post(self, request, *args, **kwargs):
+        try:
+            body = json.loads(request.body)
+            api_id = body.get('api_id')
+            if not api_id:
+                return JsonResponse(
+                    {"error": "API ID is required to fetch practitioner details."},
+                    status=400
+                )
+            practitioner_data = await get_practitioner_details(api_id)
+            if practitioner_data is None:
+                return JsonResponse(
+                    {"error": "Failed to fetch practitioner details from the external API."},
+                    status=400
+                )
+            serializer = PractitionerSerializer(data=practitioner_data)
+            if serializer.is_valid():
+                practitioner = serializer.save()
+                return JsonResponse(PractitionerSerializer(practitioner).data, status=201)
+            else:
+                return JsonResponse(serializer.errors, status=400)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON."}, status=400)
+        except Exception as e:
+            print("Error during async operation:", e)
+            return JsonResponse({'error': e}, status=500)
+
+class PractitionerViewSet(viewsets.ViewSet):
     """
     Provides only read operations on Practitioners since their data is managed externally.
     """
@@ -37,37 +84,6 @@ class PractitionerViewSet(viewsets.ModelViewSet):
         "accessibilites"
     ]
     ordering_fields = ["name", "surname", "api_id"]
-    
-    async def list(self, request, *args, **kwargs):
-        page_url = request.query_params.get('page_url', None)
-        if not page_url:
-            get_all_practitioners(base_url)
-        
-        practitioners, next_page_url = await get_all_practitioners(page_url)
-        return Response({
-            'practitioners': [await p for p in practitioners],
-            'next_page_url': next_page_url
-        }, status=status.HTTP_200_OK)
-        
-    async def create(self, request, *args, **kwargs):
-        api_id = request.data.get('api_id')
-        if not api_id:
-            return Response(
-                {"error": "API ID is required to fetch practitioner details."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        practitioner_data = await get_practitioner_details(api_id)
-        if practitioner_data is None:
-            return Response(
-                {"error": "Failed to fetch practitioner details from the external API."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        serializer = PractitionerSerializer(data=practitioner_data)
-        if serializer.is_valid():
-            practitioner = serializer.save()
-            return Response(PractitionerSerializer(practitioner).data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, *args, **kwargs):
         practitioner = self.get_object()

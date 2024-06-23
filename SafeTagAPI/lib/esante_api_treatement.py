@@ -23,7 +23,7 @@ inclusions = "?_include=PractitionerRole:organization"
 base_url = f"{esante_api_url}/PractitionerRole?{specialty_filter}{inclusions}"
 
 # Envoyer la requête
-async def get_all_practitioners(url):
+async def get_all_practitioners(url = base_url):
     next_page = ""
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.get(url) as response:
@@ -56,6 +56,8 @@ async def process_practitioner_entry(entry):
         "reference", "N/A"
     )
     organization_info, org_addresses = await get_organization_info(organization_reference)
+    if not organization_info or not org_addresses:
+        return None
     specialties = await get_specialities(practitioner_role.get("specialty", []))
     sector = get_speciality_reimboursement_sector(practitioner_role.get("code", []))
 
@@ -279,4 +281,3 @@ async def get_practitioner_details(api_practitioner_id):
                     return f"Error {response.status} : {await response.text()}"
     except aiohttp.ClientError as e:
         return f"Request failed: {e}"
-    

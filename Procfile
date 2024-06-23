@@ -1,1 +1,1 @@
-web: gunicorn SafeTag.wsgi --log-file -
+web: uvicorn SafeTag.asgi --log-file -

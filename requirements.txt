@@ -30,6 +30,7 @@ click==8.1.7
     #   click-didyoumean
     #   click-plugins
     #   click-repl
+    #   uvicorn
 click-didyoumean==0.3.1
     # via celery
 click-plugins==1.1.1
@@ -55,6 +56,8 @@ frozenlist==1.4.1
     #   aiosignal
 gunicorn==22.0.0
     # via -r .\requirements.in
+h11==0.14.0
+    # via uvicorn
 idna==3.7
     # via
     #   requests
@@ -92,6 +95,8 @@ tzdata==2024.1
     #   django
 urllib3==2.2.2
     # via requests
+uvicorn==0.30.1
+    # via -r .\requirements.in
 vine==5.1.0
     # via
     #   amqp
