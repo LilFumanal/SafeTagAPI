@@ -11,6 +11,8 @@ from django.core.cache import cache
 import json
 import logging
 
+from SafeTagAPI.models.review_model import Review
+
 from ..models.tag_model import Tag
 from ..models.practitioner_model import (
     Practitioners,
@@ -138,10 +140,9 @@ class PractitionerViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
                 )
 
-    @action(detail=True, methods=["get"])
-    def reviews(self, request, pk=None):
-        practitioner = self.get_object()
-        reviews = practitioner.review_set.all()
+    @action(detail=True, methods=["get"], url_path='reviews', url_name='practitioner-reviews')
+    def practitioner_reviews(self, request, pk=None):
+        reviews = Review.objects.filter(id_practitioners_id=pk).prefetch_related('review_tag_set')
         serializer = ReviewSerializer(reviews, many=True)
         return Response(serializer.data)
 
