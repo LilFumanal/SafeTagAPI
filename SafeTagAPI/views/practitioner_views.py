@@ -71,7 +71,7 @@ class PractitionerAsyncViews(View):
             cache.set(cache_key, response_data, timeout=24*60*60) #cache 24h
             return JsonResponse(response_data, status=200)
         except Exception as e:
-            logger(f"Error during async operation: {e}")
+            logger.error(f"Error during async operation: {e}")
             return JsonResponse({'error': e}, status=500)
         finally:
             log_open_files()
