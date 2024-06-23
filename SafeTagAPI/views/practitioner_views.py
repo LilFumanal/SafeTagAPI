@@ -28,7 +28,6 @@ from ..lib.esante_api_treatement import get_practitioner_details, get_all_practi
     
 
 logger = Logger(__name__).get_logger()
-cache.clear()
 
 def log_open_files():
     process = psutil.Process(os.getpid())
@@ -53,7 +52,7 @@ class PractitionerAsyncViews(View):
                 logger.info(f"Cache hit for key: {cache_key}.")
                 return JsonResponse(cached_data, status=200)
             logger.info("Cache miss. Fetching data from API.")
-            practitioners, next_page_url = await get_all_practitioners("https://gateway.api.esante.gouv.fr/fhir/PractitionerRole?specialty=SM38,SM42,SM43,SCD03,SCD09,SCD10,SCD08,SM39?_include=PractitionerRole:organization")
+            practitioners, next_page_url = await get_all_practitioners()
             response_data = {
                 'practitioners': practitioners,
                 'next_page_url': next_page_url
