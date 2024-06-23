@@ -6,6 +6,7 @@ from asgiref.sync import sync_to_async
 from django.views import View
 from django.template.loader import render_to_string
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
+from django.core.cache import cache
 import json
 
 from ..models.tag_model import Tag
@@ -23,21 +24,36 @@ from ..serializers.practitioner_serializer import (
 from ..serializers.review_serializer import ReviewSerializer
 from ..lib.esante_api_treatement import get_practitioner_details, get_all_practitioners, base_url
 
+    
+import psutil
 
+def log_open_files():
+    p = psutil.Process()
+    print("Open files:", len(p.open_files()))
+    print("Open connections:", len(p.connections()))
+    
 class PractitionerAsyncViews(View):
     async def get(self, request, *args, **kwargs):
-        page_url = request.GET.get('page_url', '')
-        print(page_url)
         try:
+            page_url = request.GET.get('page_url', '')
+            log_open_files()
+            cache_key = f"practitioners:{page_url}"
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                return JsonResponse(cached_data, status=200)
             practitioners, next_page_url = await get_all_practitioners("https://gateway.api.esante.gouv.fr/fhir/PractitionerRole?specialty=SM38,SM42,SM43,SCD03,SCD09,SCD10,SCD08,SM39?_include=PractitionerRole:organization")
             serialized_practitioners = [PractitionerSerializer(practitioner).data for practitioner in practitioners]
-            return JsonResponse({
+            response_data = {
                 'practitioners': serialized_practitioners,
                 'next_page_url': next_page_url
-            }, status=200)
+            }
+            cache.set(cache_key, response_data, timeout=60*60) #cache une heure
+            return JsonResponse(response_data, status=200)
         except Exception as e:
             print("Error during async operation:", e)
             return JsonResponse({'error': e}, status=500)
+        finally:
+            log_open_files()
         
     async def post(self, request, *args, **kwargs):
         try:

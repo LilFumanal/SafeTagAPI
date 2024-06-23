@@ -41,8 +41,8 @@ CORS_ALLOW_HEADERS = [
     "x-csrftoken",
 ]
 INSTALLED_APPS = [
+    "corsheaders",
     "SafeTagAPI",
-    'corsheaders',
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -52,7 +52,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -99,6 +99,16 @@ if IS_HEROKU_APP:
             ssl_require=True,
         ),
     }
+    REDIS_URL = os.environ.get('REDIS_URL')
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            }
+        }
+    }
 else:
     DATABASES = {
         "default": {
@@ -108,6 +118,15 @@ else:
             "PASSWORD": env.str("DB_PASSWORD"),
             "HOST": env.str("DB_HOST"),
             "PORT": env.str("DB_PORT"),
+        }
+    }
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': 'redis://127.0.0.1:6379/1',  # Adjust the Redis server address and database
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            }
         }
     }
 
@@ -170,4 +189,3 @@ LOGGING = {
         "propagate": False,
     },
 }
-
