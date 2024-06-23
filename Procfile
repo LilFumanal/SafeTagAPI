@@ -1,1 +1,1 @@
-web: uvicorn SafeTag.asgi --log-file -
+web: uvicorn SafeTag.asgi:application --host 0.0.0.0 --port $PORT
