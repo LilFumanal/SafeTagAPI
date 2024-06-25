@@ -11,23 +11,24 @@ logger = logging.getLogger(__name__)
 # Définir l'URL et les en-têtes d'authentification
 esante_api_url = "https://gateway.api.esante.gouv.fr/fhir"
 headers = {"ESANTE-API-KEY": "628abf0c-223d-4584-bf65-9455453f79af"}
-mental_health_specialties = [
-    "SM38",
+role=["10","93"] #https://mos.esante.gouv.fr/NOS/TRE_G15-ProfessionSante/TRE_G15-ProfessionSante.pdf
+mental_health_specialties = [ #https://mos.esante.gouv.fr/NOS/TRE_R38-SpecialiteOrdinale/FHIR/TRE-R38-SpecialiteOrdinale/TRE_R38-SpecialiteOrdinale-FHIR.json
+    "SM32",
+    "SM33",
     "SM42",
     "SM43",
-    "SCD03",
-    "SCD09",
-    "SCD10",
-    "SCD08",
-    "SM39",
-]
+    "SM92",
+    "SM93"
+]#
 specialty_filter = "specialty=" + ",".join(mental_health_specialties)
+role_filter = "role=" + ",".join(role)
 inclusions = "?_include=PractitionerRole:organization"
 
-base_url = f"{esante_api_url}/PractitionerRole?{specialty_filter}{inclusions}"
+base_url = f"{esante_api_url}/PractitionerRole?{role_filter}{specialty_filter}{inclusions}"
 
 # Envoyer la requête
 async def get_all_practitioners(url = base_url):
+    cache.clear()
     next_page = ""
     logger.info("We'll search the practitioners soon")
     try:
