@@ -5,7 +5,6 @@ from django.core.cache import cache
 from bs4 import BeautifulSoup
 import aiohttp
 import logging
-from ..serializers.practitioner_serializer import PractitionerSerializer
 logger = logging.getLogger(__name__)
 
 # Définir l'URL et les en-têtes d'authentification
@@ -13,7 +12,6 @@ esante_api_url = "https://gateway.api.esante.gouv.fr/fhir"
 headers = {"ESANTE-API-KEY": "628abf0c-223d-4584-bf65-9455453f79af"}
 role=["10","93"] #https://mos.esante.gouv.fr/NOS/TRE_G15-ProfessionSante/TRE_G15-ProfessionSante.pdf
 mental_health_specialties = [ #https://mos.esante.gouv.fr/NOS/TRE_R38-SpecialiteOrdinale/FHIR/TRE-R38-SpecialiteOrdinale/TRE_R38-SpecialiteOrdinale-FHIR.json
-    "SM32",
     "SM33",
     "SM42",
     "SM43",
@@ -24,8 +22,8 @@ specialty_filter = "specialty=" + ",".join(mental_health_specialties)
 role_filter = "role=" + ",".join(role)
 inclusions = "?_include=PractitionerRole:organization"
 
-base_url = f"{esante_api_url}/PractitionerRole?{role_filter}{specialty_filter}{inclusions}"
-
+base_url = f"{esante_api_url}/PractitionerRole?{role_filter}&{specialty_filter}"
+cache.clear()
 # Envoyer la requête
 async def get_all_practitioners(url = base_url):
     cache.clear()
@@ -145,6 +143,7 @@ def get_specialities(specialties):
                 description = get_speciality_description(lien, code)
                 if description:  # Ensure we only add valid descriptions
                     specialities_list.append(description)
+                    logger.debug(description)
                 else:
                     logger.debug("No description found for code: %s, lien: %s", code, lien)
     return specialities_list
@@ -173,12 +172,14 @@ def get_speciality_description(lien, code):
         if 'concept' in json_data:
             logger.debug("OUIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
             concepts = json_data['concept']
+            descriptions = []
             for concept in concepts:
-                code = concept.get('code')
-                description = concept.get('display') or concept.get('description')
-                cache.set(cache_key, description)
-                logger.debug("UN RESULTAT A ETE AJOUTE MAIS MON DIEU MAIS C'EST INCROYABLE")
-                logger.debug(description)
+                if code == concept.get('code'):
+                    description = concept.get('display') or concept.get('description')
+                    cache.set(cache_key, description)
+                    logger.debug("UN RESULTAT A ETE AJOUTE MAIS MON DIEU MAIS C'EST INCROYABLE")
+                    logger.debug(description)
+                    descriptions.append(description)
             return description
         else:
             return "Description non trouvée"
