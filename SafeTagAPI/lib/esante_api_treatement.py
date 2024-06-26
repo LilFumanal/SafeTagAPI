@@ -23,7 +23,7 @@ role_filter = "role=" + ",".join(role)
 inclusions = "?_include=PractitionerRole:organization"
 
 base_url = f"{esante_api_url}/PractitionerRole?{role_filter}&{specialty_filter}"
-cache.clear()
+
 # Envoyer la requête
 async def get_all_practitioners(url = base_url):
     cache.clear()
