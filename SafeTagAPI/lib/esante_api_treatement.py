@@ -141,11 +141,12 @@ def get_specialities(specialties):
             lien = coding.get("system")
             if lien == 'https://mos.esante.gouv.fr/NOS/TRE_R04-TypeSavoirFaire/FHIR/TRE-R04-TypeSavoirFaire':
                 continue
-            description = get_speciality_description(lien, code)
-            if description:  # Ensure we only add valid descriptions
-                specialities_list.append(description)
             else:
-                logger.debug("No description found for code: %s, lien: %s", code, lien)
+                description = get_speciality_description(lien, code)
+                if description:  # Ensure we only add valid descriptions
+                    specialities_list.append(description)
+                else:
+                    logger.debug("No description found for code: %s, lien: %s", code, lien)
     return specialities_list
 
 
