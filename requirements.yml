@@ -1,0 +1,20 @@
+name: safe_tag
+channels:
+- conda-forge
+dependencies:
+- python=3.12.2
+- django
+- psycopg2
+- postgresql
+- django-environ
+- djangorestframework
+- beautifulsoup4
+- celery
+- sqlparse
+- tzdata
+- aiohttp
+- dj-database-url
+- uvicorn
+- django-cors-headers
+- psutil
+- django-redis

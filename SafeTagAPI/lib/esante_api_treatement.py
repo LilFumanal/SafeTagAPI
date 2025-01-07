@@ -1,6 +1,5 @@
 import asyncio
 import requests
-from django.db import transaction
 from django.core.cache import cache
 from bs4 import BeautifulSoup
 import aiohttp
@@ -26,15 +25,12 @@ base_url = f"{esante_api_url}/PractitionerRole?{role_filter}&{specialty_filter}"
 
 # Envoyer la requête
 async def get_all_practitioners(url = base_url):
-    cache.clear()
     next_page = ""
-    logger.info("We'll search the practitioners soon")
     try:
         async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(url) as response:
                 if response.status == 200:
                     data = await response.json()
-                    logger.debug(f"Response received!")
                     practitioners_list = []
                     if "entry" in data:
                         for entry in data["entry"]:
@@ -43,7 +39,7 @@ async def get_all_practitioners(url = base_url):
                     if 'link' in data:
                         for link in data['link']:
                             if link['relation'] == 'next':
-                                next_page_url = link['url']
+                                next_page = link['url']
                                 break
                     return practitioners_list, next_page
                 else:
@@ -165,20 +161,16 @@ def get_speciality_description(lien, code):
             if a["href"].endswith(".json")
         ]
         json_url = lien + '/' + json_files[0]
-        logger.debug("Url JSON %s", json_url)
         json_response = requests.get(json_url)
         json_response.raise_for_status()
         json_data = json_response.json()            
         if 'concept' in json_data:
-            logger.debug("OUIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
             concepts = json_data['concept']
             descriptions = []
             for concept in concepts:
                 if code == concept.get('code'):
                     description = concept.get('display') or concept.get('description')
                     cache.set(cache_key, description)
-                    logger.debug("UN RESULTAT A ETE AJOUTE MAIS MON DIEU MAIS C'EST INCROYABLE")
-                    logger.debug(description)
                     descriptions.append(description)
             return description
         else:
@@ -230,15 +222,13 @@ def collect_addresses(addresses):
         postal_code = address.get("postalCode", "N/A")
         department = get_department(postal_code)
         # Here would be implemented the call function to convert entire addresses in location datas
-        latitude = address.get("latitude", None)
-        longitude = address.get("longitude", None)
+        location = address.get("location","N/A")
         address_list.append(
             {
                 "line": line,
                 "city": city,
                 "department": department,
-                "latitude": latitude,
-                "longitude": longitude,
+                "location": location
             }
         )
     return address_list
@@ -249,40 +239,44 @@ def get_map_coordinates(address):
 
 
 def get_department(postal_code):
+    """
+    Returns the department code associated with a given postal code.
+
+    Args:
+        postal_code: The postal code as a string or integer.
+
+    Returns:
+        The department code as a string, or "N/A" if the postal code is invalid.
+    """
     if not postal_code:
         return "N/A"
+
     postal_code = str(postal_code)
+
+    # Define a dictionary for mapping postal code prefixes to department codes
+    department_codes = {
+        "971": "971",  # Guadeloupe
+        "972": "972",  # Martinique
+        "973": "973",  # French Guiana
+        "974": "974",  # Réunion
+        "975": "975",  # Saint Pierre and Miquelon
+        "976": "976",  # Mayotte
+        "977": "977",  # Saint Barthélemy
+        "978": "978",  # Saint Martin
+        "984": "984",  # French Southern Territories
+        "986": "986",  # Wallis and Futuna
+        "987": "987",  # French Polynesia
+        "988": "988",  # New Caledonia
+        "989": "989",  # Clipperton Island
+    }
+
+    # Check for overseas departments
     if postal_code.startswith("97") or postal_code.startswith("98"):
-        if postal_code[:3] == "971":
-            return "971"  # Guadeloupe
-        elif postal_code[:3] == "972":
-            return "972"  # Martinique
-        elif postal_code[:3] == "973":
-            return "973"  # French Guiana
-        elif postal_code[:3] == "974":
-            return "974"  # Réunion
-        elif postal_code[:3] == "975":
-            return "975"  # Saint Pierre and Miquelon
-        elif postal_code[:3] == "976":
-            return "976"  # Mayotte
-        elif postal_code[:3] == "977":
-            return "977"  # Saint Barthélemy
-        elif postal_code[:3] == "978":
-            return "978"  # Saint Martin
-        elif postal_code[:3] == "984":
-            return "984"  # French Southern Territories
-        elif postal_code[:3] == "986":
-            return "986"  # Wallis and Futuna
-        elif postal_code[:3] == "987":
-            return "987"  # French Polynesia
-        elif postal_code[:3] == "988":
-            return "988"  # New Caledonia
-        elif postal_code[:3] == "989":
-            return "989"  # Clipperton Island
-        else:
-            return postal_code[:3]  # Default to the first three digits
+        return department_codes.get(postal_code[:3], postal_code[:3])  # Use dictionary for lookup
+
     # For metropolitan France, use the first two digits
     return postal_code[:2]
+
 
 
 async def get_practitioner_details(api_practitioner_id):

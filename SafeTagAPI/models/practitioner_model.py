@@ -1,13 +1,15 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
+from django.contrib.gis.db.models import PointField
+
+from SafeTagAPI.models import tag_model
 
 
 class Practitioner_Address(models.Model):
     line = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
     department = models.BigIntegerField()
-    latitude = models.FloatField(null=True, blank=True)
-    longitude = models.FloatField(null=True, blank=True)
+    location = PointField(geography=True, null=True, blank=True)
     wheelchair_accessibility = models.BooleanField(null=True, blank=True, default=None)
 
     def __str__(self):
@@ -15,19 +17,19 @@ class Practitioner_Address(models.Model):
 
 
 class Organization(models.Model):
-    api_organization_id = models.CharField(unique=True)
+    api_organization_id = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=255)
     addresses = models.ManyToManyField(Practitioner_Address, blank=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name}"
 
 
 def default_accessibilities():
     return {"LSF": "Unknown", "Visio": "Unknown"}
 
 
-class Practitioners(models.Model):
+class Practitioner(models.Model):
     name = models.CharField(max_length=50)
     surname = models.CharField(max_length=50)
     specialities = ArrayField(
@@ -46,34 +48,27 @@ class Practitioners(models.Model):
     def __str__(self):
         return f"{self.name} {self.surname}"
 
-
     def get_tag_averages(self):
-        from models import Review_Tag
-        # Aggregate average ratings for each tag related to this practitioner
-        tag_stats = Review_Tag.objects.filter(id_review__id_practitioners=self).values('id_tag__type').annotate(
-            average_rating=models.Avg('rating')
+        # Direct aggregation and formatting in one step
+        return (
+            tag_model.Review_Tag.objects
+            .filter(id_review__id_practitioners=self)
+            .values(tag_type=models.F("id_tag__type"))  # Use F expression for clarity
+            .annotate(average_rating=models.Avg("rates"))  # Aggregate average rating
+            .order_by("tag_type")  # Optional, but ensures consistent ordering
         )
-
-        # Format the results
-        tag_averages = []
-        for stat in tag_stats:
-            tag_averages.append({
-                'tag': stat['id_tag__type'],
-                'average_rating': stat['average_rating']
-            })
-        return tag_averages
 
 
 class Professional_Tag_Score(models.Model):
-    id_practitioners: models.ForeignKey = models.ForeignKey(
-        "Practitioners", on_delete=models.CASCADE
+    practitioner: models.ForeignKey = models.ForeignKey(
+        "Practitioner", on_delete=models.CASCADE
     )
     id_tag = models.ForeignKey("Tag", on_delete=models.CASCADE)
     score = models.IntegerField(default=0)
     review_count = models.IntegerField(default=0)
 
     class Meta:
-        unique_together = (("id_practitioners", "id_tag"),)
+        unique_together = (("practitioner", "id_tag"),)
 
     def __str__(self):
-        return f"Score for {self.id_practitioners} on Tag {self.id_tag}"
+        return f"Score for {self.practitioner} on Tag {self.id_tag}"

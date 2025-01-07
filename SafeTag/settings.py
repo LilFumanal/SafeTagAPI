@@ -9,7 +9,6 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
-
 import os
 from pathlib import Path
 import environ
@@ -30,6 +29,10 @@ if IS_HEROKU_APP:
     ALLOWED_HOSTS = ["*"]
 else:
     ALLOWED_HOSTS = [".localhost", "127.0.0.1", "[::1]", "0.0.0.0"]
+    
+# Set GDAL_LIBRARY_PATH
+os.environ['GDAL_LIBRARY_PATH'] = os.environ.get('GDAL_LIBRARY_PATH')
+
 # Application definition
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4200",  # Your Angular app's URL during development
@@ -49,6 +52,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.gis"
 ]
 
 MIDDLEWARE = [

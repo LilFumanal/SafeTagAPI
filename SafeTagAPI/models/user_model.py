@@ -19,7 +19,8 @@ class CustomUserManager(BaseUserManager):
         if not email:
             raise ValueError("L'email est obligatoire.")
         email = self.normalize_email(email)
-        user = self.model(username=self.get_unique_username(), email=email, **extra_fields)
+        username = self.generate_unique_username()
+        user = self.model(username=username, email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -33,20 +34,12 @@ class CustomUserManager(BaseUserManager):
 
         return self.create_user(email, password, **extra_fields)
 
-    def get_unique_username():
+    def generate_unique_username(self):
         color_names = color_list
-
-        while color_names:
-            # Select a random color name
-            username = random.choice(color_names)
-                
-                # Check if the username already exists in the User table
-            if not CustomUser.objects.filter(username=username).exists():
-                return username
-                # If the username is taken, remove it from the list to avoid selecting it again
-            color_names.remove(username)        
-            # If no unique username is found (highly unlikely), return a fallback name
-        return "UniqueColorUser"
+        for name in color_names:
+            if not CustomUser.objects.filter(username=name).exists():
+                return name
+        raise ValueError("No unique usernames available.")
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
@@ -58,18 +51,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_superuser = models.BooleanField(default=False)
 
     objects = CustomUserManager()
-    groups = models.ManyToManyField(
-        Group,
-        related_name="custom_user_groups",  # Add related_name to avoid clashes
-        blank=True,
-    )
-    user_permissions = models.ManyToManyField(
-        Permission,
-        related_name="custom_user_permissions",  # Add related_name to avoid clashes
-        blank=True,
-    )
+
     USERNAME_FIELD = "username"
     REQUIRED_FIELDS = ["email"]
 
     def __str__(self):
-        return self.username, self.email
+        return self.username
