@@ -108,7 +108,7 @@ def get_organization_info(org_reference):
     if cached_result is not None:
         return cached_result
     try:
-        response = requests.get(org_url, headers=HEADERS)
+        response = requests.get(org_url, headers=HEADERS, timeout=30)
         if response.status_code == 200:
             org_data = response.json()
             if org_data.get("address", []) is None:
@@ -130,9 +130,9 @@ def get_organization_info(org_reference):
         return None, None
 
 
-def get_specialities(specialties):
+def get_specialities(specialities):
     specialities_list = []
-    for specialty in specialties:
+    for specialty in specialities:
         for coding in specialty.get("coding", []):
             code = coding.get("code", "N/A")
             lien = coding.get("system")

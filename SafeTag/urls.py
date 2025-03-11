@@ -21,7 +21,7 @@ from rest_framework import routers
 
 from SafeTagAPI.views.practitioner_views import PractitionerAsyncViews, PractitionerAddressViewSet, PractitionerViewSet
 from SafeTagAPI.views.review_views import ReviewViewSet
-from SafeTagAPI.views.user_views import UserViewSet
+from SafeTagAPI.views.user_views import UserView
 
 from django.http import JsonResponse
 from django.urls import path
@@ -33,14 +33,13 @@ async def simple_async_view(request):
 
 
 router = routers.DefaultRouter()
-router.register(r"users", UserViewSet, basename="user")
 router.register(r'practitioner', PractitionerViewSet, basename='practitioner')
 router.register(r'addresses', PractitionerAddressViewSet, basename='address')
 router.register(r"reviews", ReviewViewSet)
 
 urlpatterns = [
     path("admin", admin.site.urls),
-    path('simple-async/', simple_async_view),
-    path('practitioner/async-list/', PractitionerAsyncViews.as_view())
+    path('register/', UserView.as_view(), name='register'),
+    path('practitioner/async-list/', PractitionerAsyncViews.as_view(),name="practitioner_async_list")
 ]
 urlpatterns += router.urls

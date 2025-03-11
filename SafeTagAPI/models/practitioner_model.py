@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
+from .tag_model import Review_Tag
 
 
 class Practitioner_Address(models.Model):
@@ -27,7 +28,7 @@ def default_accessibilities():
     return {"LSF": "Unknown", "Visio": "Unknown"}
 
 
-class Practitioners(models.Model):
+class Practitioner(models.Model):
     name = models.CharField(max_length=50)
     surname = models.CharField(max_length=50)
     specialities = ArrayField(
@@ -38,7 +39,7 @@ class Practitioners(models.Model):
     accessibilities = models.JSONField(
         default=default_accessibilities,
     )
-    reimboursement_sector = models.CharField(max_length=100)
+    reimboursement_sector = models.CharField(max_length=100, blank=True, null=True)
     organizations = models.ManyToManyField(Organization, blank=True)
     addresses = models.ManyToManyField(Practitioner_Address)
     api_id = models.CharField(unique=True)
@@ -48,9 +49,8 @@ class Practitioners(models.Model):
 
 
     def get_tag_averages(self):
-        from models import Review_Tag
         # Aggregate average ratings for each tag related to this practitioner
-        tag_stats = Review_Tag.objects.filter(id_review__id_practitioners=self).values('id_tag__type').annotate(
+        tag_stats = Review_Tag.objects.filter(id_review__id_practitioner=self).values('id_tag__type').annotate(
             average_rating=models.Avg('rating')
         )
 
@@ -65,15 +65,15 @@ class Practitioners(models.Model):
 
 
 class Professional_Tag_Score(models.Model):
-    id_practitioners: models.ForeignKey = models.ForeignKey(
-        "Practitioners", on_delete=models.CASCADE
+    id_practitioner: models.ForeignKey = models.ForeignKey(
+        "Practitioner", on_delete=models.CASCADE
     )
     id_tag = models.ForeignKey("Tag", on_delete=models.CASCADE)
     score = models.IntegerField(default=0)
     review_count = models.IntegerField(default=0)
 
     class Meta:
-        unique_together = (("id_practitioners", "id_tag"),)
+        unique_together = (("id_practitioner", "id_tag"),)
 
     def __str__(self):
-        return f"Score for {self.id_practitioners} on Tag {self.id_tag}"
+        return f"Score for {self.id_practitioner} on Tag {self.id_tag}"

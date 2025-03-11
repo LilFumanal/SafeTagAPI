@@ -1,5 +1,5 @@
 from .practitioner_model import (
-    Practitioners,
+    Practitioner,
     Professional_Tag_Score,
     Practitioner_Address,
     Organization,

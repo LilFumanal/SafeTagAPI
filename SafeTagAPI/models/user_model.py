@@ -6,9 +6,9 @@ from django.contrib.auth.models import (
     Group,
     Permission,
 )
+import logging
+logger = logging.getLogger(__name__)
 from django.db import models
-import requests
-from bs4 import BeautifulSoup
 from ..lib.color_list import color_list
 
 
@@ -16,15 +16,18 @@ class CustomUserManager(BaseUserManager):
     """Personnalisation de la gestion des utilisateurs afin d'intégrer la gestion de l'authentification par token"""
 
     def create_user(self, email, password, **extra_fields):
-        if not email:
+        if email is None or email == '':
             raise ValueError("L'email est obligatoire.")
-        email = self.normalize_email(email)
-        user = self.model(username=self.get_unique_username(), email=email, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
+        try:
+            user = self.model(username=self.get_unique_username(), email=email, **extra_fields)
+            user.set_password(password)
+            user.save(using=self._db)
+            return user
+        except Exception as e:
+            logger.error("Error creating user: %s",{e})
+            raise
 
-    def create_superuser(self, username, email, password, **extra_fields):
+    def create_superuser(self, email, password, **extra_fields):
         """
         Create and return a superuser with an email, password, and admin privileges.
         """
@@ -33,16 +36,15 @@ class CustomUserManager(BaseUserManager):
 
         return self.create_user(email, password, **extra_fields)
 
-    def get_unique_username():
-        color_names = color_list
-
+    def get_unique_username(self):
+        color_names = list(color_list)
         while color_names:
             # Select a random color name
             username = random.choice(color_names)
                 
                 # Check if the username already exists in the User table
             if not CustomUser.objects.filter(username=username).exists():
-                return username
+                return str(username)
                 # If the username is taken, remove it from the list to avoid selecting it again
             color_names.remove(username)        
             # If no unique username is found (highly unlikely), return a fallback name
@@ -68,8 +70,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         related_name="custom_user_permissions",  # Add related_name to avoid clashes
         blank=True,
     )
-    USERNAME_FIELD = "username"
-    REQUIRED_FIELDS = ["email"]
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = []
 
     def __str__(self):
-        return self.username, self.email
+        return f"{self.username}-{self.email}"

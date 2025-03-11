@@ -1,6 +1,6 @@
 from django.contrib import admin
 from SafeTagAPI.models.practitioner_model import (
-    Practitioners,
+    Practitioner,
     Professional_Tag_Score,
     Practitioner_Address,
 )
@@ -10,9 +10,9 @@ from SafeTagAPI.models.user_model import CustomUser
 from SafeTagAPI.models.review_model import Review_Pathologie, Pathologie
 
 
-# Register the Practitioners model
-@admin.register(Practitioners)
-class PractitionersAdmin(admin.ModelAdmin):
+# Register the Practitioner model
+@admin.register(Practitioner)
+class PractitionerAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "surname",
@@ -53,11 +53,11 @@ class PractitionnerAddressAdmin(admin.ModelAdmin):
 # Register the Professional_Tag_Score model
 @admin.register(Professional_Tag_Score)
 class ProfessionalTagScoreAdmin(admin.ModelAdmin):
-    list_display = ("id_practitioners", "id_tag", "score", "review_count")
-    list_filter = ("id_practitioners", "id_tag")
+    list_display = ("id_practitioner", "id_tag", "score", "review_count")
+    list_filter = ("id_practitioner", "id_tag")
     search_fields = (
-        "id_practitioners__name",
-        "id_practitioners__surname",
+        "id_practitioner__name",
+        "id_practitioner__surname",
         "id_tag__type",
     )
 
@@ -65,11 +65,11 @@ class ProfessionalTagScoreAdmin(admin.ModelAdmin):
 # Register the Review model
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ("review_date", "comment", "id_user", "id_practitioners")
-    list_filter = ("review_date", "id_user", "id_practitioners")
+    list_display = ("review_date", "comment", "id_user", "id_practitioner")
+    list_filter = ("review_date", "id_user", "id_practitioner")
     search_fields = (
-        "id_practitioners__name",
-        "id_practitioners__surname",
+        "id_practitioner__name",
+        "id_practitioner__surname",
     )
 
 

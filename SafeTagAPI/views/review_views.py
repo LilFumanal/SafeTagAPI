@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 
 from ..models.review_model import Review, Pathologie
 from ..models.tag_model import Review_Tag
-from ..models.practitioner_model import Practitioners
+from ..models.practitioner_model import Practitioner
 from ..serializers.review_serializer import (
     ReviewSerializer,
     PathologieSerializer,
@@ -40,7 +40,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
         review_date = date.today()
 
         # Fetch practitioner data if it doesn't exist
-        practitioner = Practitioners.objects.filter(api_id=api_practitioner_id).first()
+        practitioner = Practitioner.objects.filter(api_id=api_practitioner_id).first()
         if not practitioner:
             practitioner_data = get_practitioner_details(api_practitioner_id)
             if practitioner_data:
@@ -60,7 +60,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
         # Create the review
         review_data = {
-            "id_practitioners": practitioner.id,
+            "id_practitioner": practitioner.id,
             "review_date": review_date,
             "comment": comment,
             "tags": tags,
@@ -77,6 +77,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def practitioner_reviews(self, request, pk=None):
-        reviews = Review.objects.filter(id_practitioners_id=pk)
+        reviews = Review.objects.filter(id_practitioner_id=pk)
         serializer = self.get_serializer(reviews, many=True)
         return Response(serializer.data)

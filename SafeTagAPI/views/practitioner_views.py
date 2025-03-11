@@ -1,20 +1,17 @@
 import os
-from django.shortcuts import render
+from asgiref.sync import sync_to_async
 from rest_framework import viewsets, filters, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from asgiref.sync import sync_to_async
 from django.views import View
-from django.template.loader import render_to_string
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
+from django.http import JsonResponse
 from django.core.cache import cache
 import psutil
 import json
 from ..lib.logger import Logger
 from ..models.review_model import Review
-from ..models.tag_model import Tag
 from ..models.practitioner_model import (
-    Practitioners,
+    Practitioner,
     Practitioner_Address,
     Organization)
 from ..serializers.practitioner_serializer import (
@@ -42,9 +39,9 @@ class PractitionerAsyncViews(View):
             page_url = request.GET.get('page_url', '')
             log_open_files()
             if page_url:
-                cache_key = f"practitioners:{page_url}"
+                cache_key = f"practitioner:{page_url}"
             else:
-                cache_key = f"practitioners:base_url"
+                cache_key = f"practitioner:base_url"
             logger.info(f"Generated cache key: {cache_key}")
             cached_data = cache.get(cache_key)
             logger.info("Checked cache.")
@@ -86,18 +83,14 @@ class PractitionerAsyncViews(View):
                 return JsonResponse(PractitionerSerializer(practitioner).data, status=201)
             else:
                 return JsonResponse(serializer.errors, status=400)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON."}, status=400)
         except Exception as e:
-            print("Error during async operation:", e)
             return JsonResponse({'error': e}, status=500)
 
 class PractitionerViewSet(viewsets.ViewSet):
     """
-    Provides only read operations on Practitioners since their data is managed externally.
+    Provides only read operations on Practitioner since their data is managed externally.
     """
-
-    queryset = Practitioners.objects.all()
+    queryset = Practitioner.objects.all()
     serializer_class = PractitionerSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
@@ -129,21 +122,21 @@ class PractitionerViewSet(viewsets.ViewSet):
 
     @action(detail=True, methods=["get"], url_path='reviews', url_name='practitioner-reviews')
     def practitioner_reviews(self, request, pk=None):
-        reviews = Review.objects.filter(id_practitioners_id=pk).prefetch_related('review_tag_set')
+        reviews = Review.objects.filter(id_practitioner_id=pk).prefetch_related('review_tag_set')
         serializer = ReviewSerializer(reviews, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=["post"])
     async def update_accessibilities(self, request):
         """
-        Allows users to update accessibility details for practitioners.
+        Allows users to update accessibility details for practitioner.
         """
         api_id = request.data.get("api_id")
         accessibilities = request.data.get("accessibilities")
 
         try:
-            practitioner = await Practitioners.objects.aget(api_id=api_id)
-        except Practitioners.DoesNotExist:
+            practitioner = await Practitioner.objects.aget(api_id=api_id)
+        except Practitioner.DoesNotExist:
             return Response(
                 {"error": "Practitioner not found"}, status=status.HTTP_404_NOT_FOUND
             )

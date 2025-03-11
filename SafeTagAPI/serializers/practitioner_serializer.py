@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from ..models.practitioner_model import (
-    Practitioners,
+    Practitioner,
     Professional_Tag_Score,
     Practitioner_Address,
     Organization,
@@ -33,13 +33,12 @@ class PractitionerSerializer(serializers.ModelSerializer):
     organizations = OrganizationSerializer(many=True)
 
     class Meta:
-        model = Practitioners
+        model = Practitioner
         fields = [
             "name",
             "surname",
             "specialities",
             "accessibilities",
-            "reimboursement_sector",
             "addresses",
             "organizations",
             "api_id",  # Add api_id to track the practitioner's source from the API
@@ -51,7 +50,7 @@ class PractitionerSerializer(serializers.ModelSerializer):
         organizations_data = validated_data.pop("organizations", [])
 
         # Create the practitioner instance with the main validated data
-        practitioner = Practitioners.objects.create(**validated_data)
+        practitioner = Practitioner.objects.create(**validated_data)
 
         # Process and add addresses to the practitioner
         for address_data in addresses_data:
