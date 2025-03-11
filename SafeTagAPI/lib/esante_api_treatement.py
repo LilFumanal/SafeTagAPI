@@ -1,6 +1,5 @@
 import asyncio
 import requests
-from django.db import transaction
 from django.core.cache import cache
 from bs4 import BeautifulSoup
 import aiohttp
@@ -8,33 +7,33 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Définir l'URL et les en-têtes d'authentification
-esante_api_url = "https://gateway.api.esante.gouv.fr/fhir"
-headers = {"ESANTE-API-KEY": "628abf0c-223d-4584-bf65-9455453f79af"}
-role=["10","93"] #https://mos.esante.gouv.fr/NOS/TRE_G15-ProfessionSante/TRE_G15-ProfessionSante.pdf
-mental_health_specialties = [ #https://mos.esante.gouv.fr/NOS/TRE_R38-SpecialiteOrdinale/FHIR/TRE-R38-SpecialiteOrdinale/TRE_R38-SpecialiteOrdinale-FHIR.json
+ESANTE_API_URL = "https://gateway.api.esante.gouv.fr/fhir"
+HEADERS = {"ESANTE-API-KEY": "628abf0c-223d-4584-bf65-9455453f79af"}
+ROLE = ["10", "93"]  # https://mos.esante.gouv.fr/NOS/TRE_G15-ProfessionSante/TRE_G15-ProfessionSante.pdf
+MENTAL_HEALTH_SPECIALTIES = [  # https://mos.esante.gouv.fr/NOS/TRE_R38-SpecialiteOrdinale/FHIR/TRE-R38-SpecialiteOrdinale/TRE_R38-SpecialiteOrdinale-FHIR.json
     "SM33",
     "SM42",
     "SM43",
     "SM92",
     "SM93"
-]#
-specialty_filter = "specialty=" + ",".join(mental_health_specialties)
-role_filter = "role=" + ",".join(role)
-inclusions = "?_include=PractitionerRole:organization"
+]
+SPECIALTY_FILTER = "specialty=" + ",".join(MENTAL_HEALTH_SPECIALTIES)
+ROLE_FILTER = "role=" + ",".join(ROLE)
+INCLUSIONS = "?_include=PractitionerRole:organization"
 
-base_url = f"{esante_api_url}/PractitionerRole?{role_filter}&{specialty_filter}"
+BASE_URL = f"{ESANTE_API_URL}/PractitionerRole?{ROLE_FILTER}&{SPECIALTY_FILTER}"
 
 # Envoyer la requête
-async def get_all_practitioners(url = base_url):
+async def get_all_practitioners(url = BASE_URL):
     cache.clear()
     next_page = ""
     logger.info("We'll search the practitioners soon")
     try:
-        async with aiohttp.ClientSession(headers=headers) as session:
+        async with aiohttp.ClientSession(headers=HEADERS) as session:
             async with session.get(url) as response:
                 if response.status == 200:
                     data = await response.json()
-                    logger.debug(f"Response received!")
+                    logger.debug("Response received: %s", response.status)
                     practitioners_list = []
                     if "entry" in data:
                         for entry in data["entry"]:
@@ -43,21 +42,21 @@ async def get_all_practitioners(url = base_url):
                     if 'link' in data:
                         for link in data['link']:
                             if link['relation'] == 'next':
-                                next_page_url = link['url']
+                                next_page = link['url']
                                 break
                     return practitioners_list, next_page
                 else:
-                    logger.error(f"Failed requests: {response.status}: {response.text}")
+                    logger.error("Failed requests: %s: %s", response.status, response.text)
                     return f"Erreur {response.status} : {response.text}", None
     except aiohttp.ClientError as e:
-        logger.error(f"Request failed: {e}")
+        logger.error("Request failed: %s", e)
         return f"Request failed: {e}", None
     except asyncio.TimeoutError:
         logger.error("Request timeout")
         return "Request timeout", None
 
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+        logger.error("Unexpected error: %s", e, exc_info=True)
         return f"Unexpected error: {e}", None
 
 
@@ -104,12 +103,12 @@ def extract_name_and_surname(extensions):
 
 
 def get_organization_info(org_reference):
-    org_url = f"{esante_api_url}/{org_reference}"
+    org_url = f"{ESANTE_API_URL}/{org_reference}"
     cached_result = cache.get(org_url)
     if cached_result is not None:
         return cached_result
     try:
-        response = requests.get(org_url, headers=headers)
+        response = requests.get(org_url, headers=HEADERS)
         if response.status_code == 200:
             org_data = response.json()
             if org_data.get("address", []) is None:
@@ -127,7 +126,7 @@ def get_organization_info(org_reference):
         else:
             return None, None
     except requests.exceptions.RequestException as e:
-        logger.error(f"Erreur de requête : {e}")
+        logger.error("Erreur de requête : %s", e)
         return None, None
 
 
@@ -165,20 +164,17 @@ def get_speciality_description(lien, code):
             if a["href"].endswith(".json")
         ]
         json_url = lien + '/' + json_files[0]
-        logger.debug("Url JSON %s", json_url)
-        json_response = requests.get(json_url)
+        logger.debug("Url found : %s", json_url)
+        json_response = requests.get(json_url, timeout=60)
         json_response.raise_for_status()
         json_data = json_response.json()            
         if 'concept' in json_data:
-            logger.debug("OUIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
             concepts = json_data['concept']
             descriptions = []
             for concept in concepts:
                 if code == concept.get('code'):
                     description = concept.get('display') or concept.get('description')
                     cache.set(cache_key, description)
-                    logger.debug("UN RESULTAT A ETE AJOUTE MAIS MON DIEU MAIS C'EST INCROYABLE")
-                    logger.debug(description)
                     descriptions.append(description)
             return description
         else:
@@ -253,31 +249,31 @@ def get_department(postal_code):
         return "N/A"
     postal_code = str(postal_code)
     if postal_code.startswith("97") or postal_code.startswith("98"):
-        if postal_code[:3] == "971":
+        if postal_code.startswith("971"):
             return "971"  # Guadeloupe
-        elif postal_code[:3] == "972":
+        if postal_code.startswith("972"):
             return "972"  # Martinique
-        elif postal_code[:3] == "973":
+        if postal_code.startswith("973"):
             return "973"  # French Guiana
-        elif postal_code[:3] == "974":
+        if postal_code.startswith("974"):
             return "974"  # Réunion
-        elif postal_code[:3] == "975":
+        if postal_code.startswith("975"):
             return "975"  # Saint Pierre and Miquelon
-        elif postal_code[:3] == "976":
+        if postal_code.startswith("976"):
             return "976"  # Mayotte
-        elif postal_code[:3] == "977":
+        if postal_code.startswith("977"):
             return "977"  # Saint Barthélemy
-        elif postal_code[:3] == "978":
+        if postal_code.startswith("978"):
             return "978"  # Saint Martin
-        elif postal_code[:3] == "984":
+        if postal_code.startswith("984"):
             return "984"  # French Southern Territories
-        elif postal_code[:3] == "986":
+        if postal_code.startswith("986"):
             return "986"  # Wallis and Futuna
-        elif postal_code[:3] == "987":
+        if postal_code.startswith("987"):
             return "987"  # French Polynesia
-        elif postal_code[:3] == "988":
+        if postal_code.startswith("988"):
             return "988"  # New Caledonia
-        elif postal_code[:3] == "989":
+        if postal_code.startswith("989"):
             return "989"  # Clipperton Island
         else:
             return postal_code[:3]  # Default to the first three digits
@@ -287,8 +283,8 @@ def get_department(postal_code):
 
 async def get_practitioner_details(api_practitioner_id):
     try:
-        url = f"{esante_api_url}/PractitionerRole/{api_practitioner_id}"
-        async with aiohttp.ClientSession(headers=headers) as session:
+        url = f"{ESANTE_API_URL}/PractitionerRole/{api_practitioner_id}"
+        async with aiohttp.ClientSession(headers=HEADERS) as session:
             async with session.get(url) as response:
                 if response.status == 200:
                     practitioner_data = await response.json()
@@ -320,9 +316,8 @@ async def get_practitioner_details(api_practitioner_id):
                         "api_id": api_id,
                     }
                         # Serialize and save the practitioner data
-
                     return data_for_serializer
                 else:
-                    return f"Error {response.status} : {await response.text()}"
+                    return {"error": f"HTTP error {response.status}", "details": await response.text()}
     except aiohttp.ClientError as e:
-        return f"Request failed: {e}"
+        return {"error": "Request failed", "details": str(e)}
