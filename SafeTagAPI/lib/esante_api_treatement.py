@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 # Définir l'URL et les en-têtes d'authentification
 esante_api_url = "https://gateway.api.esante.gouv.fr/fhir"
-headers = {"ESANTE-API-KEY": "628abf0c-223d-4584-bf65-9455453f79af"}
+headers = {"ESANTE-API-KEY": "inserercode"}
 role=["10","93"] #https://mos.esante.gouv.fr/NOS/TRE_G15-ProfessionSante/TRE_G15-ProfessionSante.pdf
 mental_health_specialties = [ #https://mos.esante.gouv.fr/NOS/TRE_R38-SpecialiteOrdinale/FHIR/TRE-R38-SpecialiteOrdinale/TRE_R38-SpecialiteOrdinale-FHIR.json
     "SM33",
