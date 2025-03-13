@@ -1,6 +1,6 @@
 # SafeTag API
 
-Welcome on the SafeTag API, where you can access every mentalhealth practitioners practicing in France through the [https://gateway.api.esante.gouv.fr/fhir](Esante API datas), but also the comments of former patients they had.
+Welcome on the SafeTag API, where you can access every mentalhealth practitioners practicing in France through the [Esante API datas](https://gateway.api.esante.gouv.fr/fhir), but also the comments of former patients they had.
 Users will be able to anonymously leave a comprehensive review of their experience with a practitioner, regarding their attitude towards discrimination issues that anyone might face, as well as the families of pathologies mentioned, in order to reassure and inform future patients about the practitioners around them.
 In accordance with French legislation on the use of this data, any practitioner can request to be removed from this list by contacting us at "safetagadmin.fr".
 
@@ -47,7 +47,7 @@ The **.env** needs to be listed in the **.gitignore**, it's **not versionned**, 
 - You should use **python 3.12.2**
 - Install the dependencies from requirements.txt (maybe in a virtual environment)
 - Create you .env file based on .env-template.
-- Run a [https://redis.io/downloads/](redis server). **If you don't cache the datas, your requests would be denied.**
+- Run a [redis server](https://redis.io/downloads/). **If you don't cache the datas, your requests would be denied.**
 
 ## How to use
 
