@@ -1,37 +1,27 @@
-from rest_framework import viewsets, permissions, status
-from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.generics import CreateAPIView
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from ..models.user_model import CustomUser
-from ..serializers.user_serializer import UsersSerializer
+from ..serializers.user_serializer import CustomTokenObtainPairSerializer, UsersSerializer
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 User = CustomUser
 
+class UserCreateView(CreateAPIView):
+    """Generic View for Listing and Creating User Profiles"""
 
-class UserViewSet(viewsets.ViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = UsersSerializer
+    permission_classes = [AllowAny]
+
+class CustomTokenObtainPairView(TokenObtainPairView):
     """
-    A viewset for user registration and profile management.
+    Custom view for JWT token generation.
     """
+    serializer_class = CustomTokenObtainPairSerializer
 
-    @action(detail=False, methods=["post"], permission_classes=[permissions.AllowAny])
-    def register(self, request):
-        """
-        Custom action for user registration.
-        """
-        serializer = UsersSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# class CustomTokenObtainPairView(TokenObtainPairView):
-#     """
-#     Custom view for JWT token generation.
-#     """
-#     serializer_class = CustomTokenObtainPairSerializer
-
-# class CustomTokenRefreshView(TokenRefreshView):
-#     """
-#     Custom view for refreshing JWT tokens.
-#     """
-#     serializer_class = CustomTokenObtainPairSerializer
+class CustomTokenRefreshView(TokenRefreshView):
+    """
+    Custom view for refreshing JWT tokens.
+    """
+    serializer_class = TokenRefreshSerializer
