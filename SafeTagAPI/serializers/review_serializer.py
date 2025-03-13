@@ -59,15 +59,21 @@ class ReviewSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         practitioner_id = self.initial_data.get("id_practitioner")
-
         if practitioner_id:
-            try:
-                practitioner_instance = Practitioner.objects.get(pk=practitioner_id)
-                self.fields["id_address"].queryset = (
-                    practitioner_instance.addresses.all()
-                )
-            except Practitioner.DoesNotExist:
-                raise serializers.ValidationError("The practitioner does not exist.")
+            self.fields["id_address"].queryset = self.get_addresses_for_practitioner(practitioner_id)
+
+    def get_addresses_for_practitioner(self, practitioner_id):
+        try:
+            practitioner_instance = Practitioner.objects.get(pk=practitioner_id)
+            if not practitioner_instance.organizations.exists():
+                raise serializers.ValidationError("The practitioner must be associated with at least one organization.")
+            organization_ids = [org.id for org in practitioner_instance.organizations.all()]
+            addresses = Address.objects.filter(organization__id__in=organization_ids).distinct()
+            if not addresses.exists():
+                raise serializers.ValidationError("The organizations must be associated with at least one address.")
+            return addresses
+        except Practitioner.DoesNotExist:
+            raise serializers.ValidationError("The practitioner does not exist.")
 
     def create(self, validated_data):
         tags_data = validated_data.pop("review_tag_set", [])

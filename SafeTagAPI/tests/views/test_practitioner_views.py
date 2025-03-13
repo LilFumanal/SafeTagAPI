@@ -39,6 +39,7 @@ class PractitionerAsyncViewsTest(TestCase):
                 "latitude":12.34,
                 "longitude":56.78,
                 "wheelchair_accessibility":None,
+                "is_active":True
             }]}]
         }
         response = await sync_to_async(self.client.post)(
@@ -91,7 +92,8 @@ class AddressViewSetTest(TestCase):
             department=1,
             latitude=12.34,
             longitude=56.78,
-            wheelchair_accessibility=True
+            wheelchair_accessibility=True,
+            is_active=True
         )
 
     def test_update_wheelchair_accessibility(self):

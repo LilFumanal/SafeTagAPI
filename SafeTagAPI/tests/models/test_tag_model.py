@@ -14,7 +14,8 @@ class ReviewTagModelTest(TestCase):
             department=1,
             latitude=12.34,
             longitude=56.78,
-            wheelchair_accessibility=True
+            wheelchair_accessibility=True,
+            is_active=True
         )
         self.review = Review.objects.create(
             review_date="2023-01-01",

@@ -19,7 +19,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework import routers
 
-from SafeTagAPI.views.practitioner_views import PractitionerAsyncViews, PractitionerAddressViewSet, PractitionerViewSet
+from SafeTagAPI.views.practitioner_views import PractitionerAsyncViews, AddressViewSet, PractitionerViewSet
 from SafeTagAPI.views.review_views import ReviewViewSet
 from SafeTagAPI.views.user_views import UserView
 
@@ -34,7 +34,7 @@ async def simple_async_view(request):
 
 router = routers.DefaultRouter()
 router.register(r'practitioner', PractitionerViewSet, basename='practitioner')
-router.register(r'addresses', PractitionerAddressViewSet, basename='address')
+router.register(r'addresses', AddressViewSet, basename='address')
 router.register(r"reviews", ReviewViewSet)
 
 urlpatterns = [

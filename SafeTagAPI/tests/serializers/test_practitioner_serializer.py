@@ -71,7 +71,8 @@ class PractitionerSerializerTest(TestCase):
                     "department": 10,
                     "latitude": 12.34,
                     "longitude": 56.78,
-                    "wheelchair_accessibility": True
+                    "wheelchair_accessibility": True,
+                    "is_active": True
                 }]
             }],
             "api_id": 123
@@ -116,7 +117,8 @@ class PractitionerSerializerTest(TestCase):
                     "department": 10,
                     "latitude": 12.34,
                     "longitude": 56.78,
-                    "wheelchair_accessibility": True
+                    "wheelchair_accessibility": True,
+                    "is_active":True
                 }]
             }],
             "api_id": 456789  # Trying to change api_id

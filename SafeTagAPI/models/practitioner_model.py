@@ -10,6 +10,7 @@ class Address(models.Model):
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     wheelchair_accessibility = models.BooleanField(null=True, blank=True, default=None)
+    is_active=models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.line}, {self.city}"
@@ -42,6 +43,7 @@ class Practitioner(models.Model):
     reimboursement_sector = models.CharField(max_length=100, blank=True, null=True)
     organizations = models.ManyToManyField(Organization)
     api_id = models.IntegerField(unique=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.name} {self.surname}"
@@ -50,7 +52,7 @@ class Practitioner(models.Model):
     def get_tag_averages(self):
         # Aggregate average ratings for each tag related to this practitioner
         tag_stats = Review_Tag.objects.filter(id_review__id_practitioner=self).values('id_tag__type').annotate(
-            average_rating=models.Avg('rating')
+            average_rating=models.Avg('rates')
         )
 
         # Format the results

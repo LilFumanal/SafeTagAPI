@@ -19,6 +19,7 @@ class AddressSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "wheelchair_accessibility",
+            "is_active"
         ]
 
 
@@ -28,6 +29,11 @@ class OrganizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Organization
         fields = ["api_organization_id", "name", "addresses"]
+    
+    def get_addresses(self, obj):
+        # Filtrer les adresses actives
+        addresses = obj.addresses.filter(is_active=True)
+        return AddressSerializer(addresses, many=True).data
 
 
 class PractitionerSerializer(serializers.ModelSerializer):
@@ -42,6 +48,7 @@ class PractitionerSerializer(serializers.ModelSerializer):
             "accessibilities",
             "organizations",
             "api_id",  # Add api_id to track the practitioner's source from the API
+            "is_active"
         ]
 
     def create(self, validated_data):
@@ -66,6 +73,7 @@ class PractitionerSerializer(serializers.ModelSerializer):
                     defaults={
                         "latitude": address_data.get("latitude"),
                         "longitude": address_data.get("longitude"),
+                        "is_active": True
                     },
                 )
                 organization.addresses.add(address)
@@ -113,6 +121,8 @@ class PractitionerSerializer(serializers.ModelSerializer):
                         defaults={
                             "latitude": address_data.get("latitude"),
                             "longitude": address_data.get("longitude"),
+                            "wheelchair_accessibility": address_data.get("wheelchair_accessibility"),
+                            "is_active": address_data.get("is_active", True),
                         },
                     )
                     organization.addresses.add(address)

@@ -15,7 +15,8 @@ class ReviewModelTest(TestCase):
             department=1,
             latitude=12.34,
             longitude=56.78,
-            wheelchair_accessibility=True
+            wheelchair_accessibility=True,
+            is_active=True
         )
         self.pathologie = Pathologie.objects.create(name="Test Pathologie", description="Test Description")
         self.tag = Tag.objects.create(type="TestTag")
