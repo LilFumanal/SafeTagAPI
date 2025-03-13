@@ -1,14 +1,21 @@
 import asyncio
+import os
+from pathlib import Path
 import requests
 from django.core.cache import cache
 from bs4 import BeautifulSoup
 import aiohttp
 import logging
+import environ
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+env = environ.Env()
+environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 logger = logging.getLogger(__name__)
 
 # Définir l'URL et les en-têtes d'authentification
 ESANTE_API_URL = "https://gateway.api.esante.gouv.fr/fhir"
-HEADERS = {"ESANTE-API-KEY": "3dca7364-a4ac-474d-bacd-d01c831a2f26"}
+HEADERS = {"ESANTE-API-KEY": env.str('ESANTE_API_KEY')}
 ROLE = ["10", "93"]  # https://mos.esante.gouv.fr/NOS/TRE_G15-ProfessionSante/TRE_G15-ProfessionSante.pdf
 MENTAL_HEALTH_SPECIALTIES = [  # https://mos.esante.gouv.fr/NOS/TRE_R38-SpecialiteOrdinale/FHIR/TRE-R38-SpecialiteOrdinale/TRE_R38-SpecialiteOrdinale-FHIR.json
     "SM33",
