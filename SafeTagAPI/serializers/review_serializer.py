@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from ..models.review_model import Pathologie, Review, Review_Pathologie
 from ..models.tag_model import Tag, Review_Tag
-from ..models.practitioner_model import Practitioner, Practitioner_Address
+from ..models.practitioner_model import Practitioner, Address
 from .practitioner_serializer import PractitionerSerializer
 from ..lib import esante_api_treatement as eat
 
@@ -41,7 +41,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     tags = ReviewTagSerializer(many=True, source="review_tag_set")
     pathologies = ReviewPathologieSerializer(many=True, source="review_pathologie_set")
     id_address = serializers.PrimaryKeyRelatedField(
-        queryset=Practitioner_Address.objects.none()
+        queryset=Address.objects.none()
     )
 
     class Meta:

@@ -2,7 +2,7 @@ from django.contrib import admin
 from SafeTagAPI.models.practitioner_model import (
     Practitioner,
     Professional_Tag_Score,
-    Practitioner_Address,
+    Address,
 )
 from SafeTagAPI.models.review_model import Review
 from SafeTagAPI.models.tag_model import Tag, Review_Tag
@@ -24,20 +24,18 @@ class PractitionerAdmin(admin.ModelAdmin):
         "name",
         "surname",
         "specialities",
-        "addresses",
         "reimboursement_sector",
         "accessibilities",
     )
     list_filter = (
         "specialities",
-        "addresses",
         "reimboursement_sector",
         "accessibilities",
     )
 
 
-@admin.register(Practitioner_Address)
-class PractitionnerAddressAdmin(admin.ModelAdmin):
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
     list_display = (
         "line",
         "city",

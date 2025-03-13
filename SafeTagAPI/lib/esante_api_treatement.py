@@ -80,7 +80,6 @@ def process_practitioner_entry(entry):
         "specialities": specialties,
         "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
         "reimboursement_sector": sector,
-        "addresses": org_addresses,
         "organizations": [organization_info],
         "api_id": api_id,
     }
@@ -311,7 +310,6 @@ async def get_practitioner_details(api_practitioner_id):
                         "specialities": specialties,
                         "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
                         "reimboursement_sector": sector,
-                        "addresses": org_addresses,
                         "organizations": [organization_info],
                         "api_id": api_id,
                     }

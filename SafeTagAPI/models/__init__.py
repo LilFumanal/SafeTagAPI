@@ -1,7 +1,7 @@
 from .practitioner_model import (
     Practitioner,
     Professional_Tag_Score,
-    Practitioner_Address,
+    Address,
     Organization,
 )
 from .review_model import Review, Review_Pathologie, Pathologie

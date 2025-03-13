@@ -1,5 +1,5 @@
 from django.test import TestCase
-from SafeTagAPI.models.practitioner_model import Organization, Practitioner_Address
+from SafeTagAPI.models.practitioner_model import Organization, Address
 
 # SafeTagAPI/models/test_practitioner_model.py
 
@@ -7,7 +7,7 @@ from SafeTagAPI.models.practitioner_model import Organization, Practitioner_Addr
 class OrganizationModelTest(TestCase):
 
     def setUp(self):
-        self.address1 = Practitioner_Address.objects.create(
+        self.address1 = Address.objects.create(
             line="123 Main St",
             city="Test City",
             department=1,
@@ -15,7 +15,7 @@ class OrganizationModelTest(TestCase):
             longitude=56.78,
             wheelchair_accessibility=True
         )
-        self.address2 = Practitioner_Address.objects.create(
+        self.address2 = Address.objects.create(
             line="456 Elm St",
             city="Another City",
             department=2,
@@ -24,29 +24,29 @@ class OrganizationModelTest(TestCase):
             wheelchair_accessibility=False
         )
         self.organization = Organization.objects.create(
-            api_organization_id="org123",
+            api_organization_id=123,
             name="Test Organization"
         )
         self.organization.addresses.add(self.address1, self.address2)
 
     def test_organization_creation(self):
-        org = Organization.objects.get(api_organization_id="org123")
+        org = Organization.objects.get(api_organization_id=123)
         self.assertEqual(org.name, "Test Organization")
-        self.assertEqual(org.api_organization_id, "org123")
+        self.assertEqual(org.api_organization_id, 123)
 
     def test_organization_str(self):
-        org = Organization.objects.get(api_organization_id="org123")
+        org = Organization.objects.get(api_organization_id=123)
         self.assertEqual(str(org), "Test Organization")
 
     def test_organization_addresses(self):
-        org = Organization.objects.get(api_organization_id="org123")
+        org = Organization.objects.get(api_organization_id=123)
         addresses = org.addresses.all()
         self.assertEqual(addresses.count(), 2)
         self.assertIn(self.address1, addresses)
         self.assertIn(self.address2, addresses)
 
     def test_add_address_to_organization(self):
-        new_address = Practitioner_Address.objects.create(
+        new_address = Address.objects.create(
             line="789 Oak St",
             city="New City",
             department=3,

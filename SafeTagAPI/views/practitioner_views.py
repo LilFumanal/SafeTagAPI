@@ -12,11 +12,11 @@ from ..lib.logger import Logger
 from ..models.review_model import Review
 from ..models.practitioner_model import (
     Practitioner,
-    Practitioner_Address,
+    Address,
     Organization)
 from ..serializers.practitioner_serializer import (
     PractitionerSerializer,
-    PractitionerAddressSerializer,
+    AddressSerializer,
     OrganizationSerializer,
 )
 from ..serializers.review_serializer import ReviewSerializer
@@ -147,13 +147,13 @@ class PractitionerViewSet(viewsets.ViewSet):
         )
 
 
-class PractitionerAddressViewSet(mixins.UpdateModelMixin, mixins.RetrieveModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+class AddressViewSet(mixins.UpdateModelMixin, mixins.RetrieveModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     """
     Allows updating only the wheelchair accessibility for Practitioner Addresses.
     """
 
-    queryset = Practitioner_Address.objects.all()
-    serializer_class = PractitionerAddressSerializer
+    queryset = Address.objects.all()
+    serializer_class = AddressSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ["line", "city", "department", "wheelchair_accessibility"]
 
@@ -168,7 +168,7 @@ class PractitionerAddressViewSet(mixins.UpdateModelMixin, mixins.RetrieveModelMi
         if "wheelchair_accessibility" in data:
             instance.wheelchair_accessibility = data["wheelchair_accessibility"]
             instance.save()
-            return Response(PractitionerAddressSerializer(instance).data)
+            return Response(AddressSerializer(instance).data)
         else:
             return Response(
                 {"error": "Only wheelchair_accessibility can be updated."},

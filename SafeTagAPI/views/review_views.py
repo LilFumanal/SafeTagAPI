@@ -13,7 +13,7 @@ from ..serializers.review_serializer import (
     ReviewTagSerializer,
 )
 from ..serializers.practitioner_serializer import (
-    Practitioner_Address,
+    Address,
     PractitionerSerializer,
 )
 from ..lib.esante_api_treatement import get_practitioner_details

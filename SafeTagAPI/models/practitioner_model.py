@@ -3,7 +3,7 @@ from django.contrib.postgres.fields import ArrayField
 from .tag_model import Review_Tag
 
 
-class Practitioner_Address(models.Model):
+class Address(models.Model):
     line = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
     department = models.BigIntegerField()
@@ -16,9 +16,9 @@ class Practitioner_Address(models.Model):
 
 
 class Organization(models.Model):
-    api_organization_id = models.CharField(unique=True)
+    api_organization_id = models.IntegerField(unique=True)
     name = models.CharField(max_length=255)
-    addresses = models.ManyToManyField(Practitioner_Address, blank=True)
+    addresses = models.ManyToManyField('Address')
 
     def __str__(self):
         return self.name
@@ -40,9 +40,8 @@ class Practitioner(models.Model):
         default=default_accessibilities,
     )
     reimboursement_sector = models.CharField(max_length=100, blank=True, null=True)
-    organizations = models.ManyToManyField(Organization, blank=True)
-    addresses = models.ManyToManyField(Practitioner_Address)
-    api_id = models.CharField(unique=True)
+    organizations = models.ManyToManyField(Organization)
+    api_id = models.IntegerField(unique=True)
 
     def __str__(self):
         return f"{self.name} {self.surname}"
