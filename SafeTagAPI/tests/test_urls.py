@@ -29,7 +29,7 @@ def test_user_viewset_url(client):
 
 @pytest.mark.django_db
 def test_practitioner_viewset_url(client):
-    url = reverse('practitioner-list')
+    url = reverse('practitioner')
     assert resolve(url).func.cls == PractitionerViewSet
 
 @pytest.mark.django_db

@@ -14,18 +14,16 @@ from ..lib.color_list import color_list
 
 class CustomUserManager(BaseUserManager):
     """Personnalisation de la gestion des utilisateurs afin d'intégrer la gestion de l'authentification par token"""
-
-    def create_user(self, email, password, **extra_fields):
-        if email is None or email == '':
-            raise ValueError("L'email est obligatoire.")
-        try:
-            user = self.model(username=self.get_unique_username(), email=email, **extra_fields)
-            user.set_password(password)
-            user.save(using=self._db)
-            return user
-        except Exception as e:
-            logger.error("Error creating user: %s",{e})
-            raise
+    
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('The Email field must be set')
+        email = self.normalize_email(email)
+        username = self.get_unique_username()
+        user = self.model(email=email, username=username, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
 
     def create_superuser(self, email, password, **extra_fields):
         """
@@ -70,7 +68,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         related_name="custom_user_permissions",  # Add related_name to avoid clashes
         blank=True,
     )
-    USERNAME_FIELD = "email"
+    USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
 
     def __str__(self):

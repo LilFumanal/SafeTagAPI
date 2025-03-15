@@ -1,3 +1,4 @@
+from django.forms import ValidationError
 import pytest
 from rest_framework import serializers
 from SafeTagAPI.models.user_model import CustomUser
@@ -57,9 +58,10 @@ class TestReviewSerializer:
             'tags': [{'id_tag': self.tag.id, 'rates': 5}],
             'id_address': self.address.id
         }
-        serializer = ReviewSerializer(data=data)
-        with self.assertRaises(serializers.ValidationError):
+        with pytest.raises(serializers.ValidationError) as excinfo:
+            serializer = ReviewSerializer(data=data)
             serializer.is_valid(raise_exception=True)
+        assert 'The practitioner does not exist.' in str(excinfo.value)
 
     def test_review_serializer_invalid_address(self):
         data = {

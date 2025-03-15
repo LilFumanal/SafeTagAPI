@@ -17,14 +17,15 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
 from rest_framework import routers
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from SafeTagAPI.serializers.user_serializer import CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
 from SafeTagAPI.views.practitioner_views import PractitionerAsyncViews, AddressViewSet, PractitionerViewSet
 from SafeTagAPI.views.review_views import ReviewViewSet
-from SafeTagAPI.views.user_views import UserView
+from SafeTagAPI.views.user_views import UserCreateView
 
-from django.http import JsonResponse
-from django.urls import path
 
 async def simple_async_view(request):
     print("Simple async view called")
@@ -39,7 +40,9 @@ router.register(r"reviews", ReviewViewSet)
 
 urlpatterns = [
     path("admin", admin.site.urls),
-    path('register/', UserView.as_view(), name='register'),
-    path('practitioner/async-list/', PractitionerAsyncViews.as_view(),name="practitioner_async_list")
+    path('register/', UserCreateView.as_view(), name='register'),
+    path('practitioner/async-list/', PractitionerAsyncViews.as_view(),name="practitioner_async_list"),
+    path('api/token/', TokenObtainPairView.as_view(serializer_class=CustomTokenObtainPairSerializer), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(serializer_class=CustomTokenRefreshSerializer), name='token_refresh'),
 ]
 urlpatterns += router.urls
