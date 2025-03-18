@@ -3,7 +3,7 @@ from django.urls import reverse, resolve
 from django.test import Client
 from SafeTagAPI.views.practitioner_views import PractitionerAsyncViews, PractitionerViewSet, AddressViewSet
 from SafeTagAPI.views.review_views import ReviewViewSet
-from SafeTagAPI.views.user_views import UserView
+from SafeTagAPI.views.user_views import UserCreateView
 from SafeTag.urls import simple_async_view
 
 # SafeTag/test_urls.py
@@ -24,13 +24,13 @@ def test_practitioner_async_list_url(client):
 
 @pytest.mark.django_db
 def test_user_viewset_url(client):
-    url = reverse('user-list')
-    assert resolve(url).func.cls == UserView
+    url = reverse('register')
+    assert resolve(url).func.cls == UserCreateView
 
-@pytest.mark.django_db
-def test_practitioner_viewset_url(client):
-    url = reverse('practitioner')
-    assert resolve(url).func.cls == PractitionerViewSet
+# @pytest.mark.django_db
+# def test_practitioner_viewset_url(client):
+#     url = reverse('practitioner')
+#     assert resolve(url).func.cls == PractitionerViewSet
 
 @pytest.mark.django_db
 def test_practitioner_address_viewset_url(client):

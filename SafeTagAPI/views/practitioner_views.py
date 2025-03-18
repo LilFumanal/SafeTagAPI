@@ -1,4 +1,5 @@
 import os
+from socket import timeout
 from asgiref.sync import sync_to_async
 from rest_framework import viewsets, filters, status, mixins
 from rest_framework.decorators import action
@@ -30,13 +31,13 @@ def log_open_files():
     process = psutil.Process(os.getpid())
     open_files = process.open_files()
     print(f"Open files: {len(open_files)}")
-    open_connections = process.connections()
+    open_connections = process.net_connections()
     print(f"Open connections: {len(open_connections)}")
     
 class PractitionerAsyncViews(View):
     async def get(self, request, *args, **kwargs):
         try:
-            page_url = request.GET.get('page_url', '')
+            page_url = request.GET.get('page_url', '', timeout=5)
             log_open_files()
             if page_url:
                 cache_key = f"practitioner:{page_url}"
@@ -105,7 +106,8 @@ class PractitionerViewSet(viewsets.ViewSet):
     ordering_fields = ["name", "surname", "api_id"]
 
     def retrieve(self, request, *args, **kwargs):
-        practitioner = self.get_object()
+        from django.shortcuts import get_object_or_404
+        practitioner = get_object_or_404(Practitioner, pk=kwargs['pk'])
         practitioner_data = PractitionerSerializer(practitioner).data
         if practitioner_data:
             tag_averages = practitioner.get_tag_averages()
@@ -114,19 +116,14 @@ class PractitionerViewSet(viewsets.ViewSet):
                     "tag_summary_list": tag_averages,  # Add tag summary list
             }
             return Response(response_data)
-        else:
-            return Response(
-                {"error": "Practitioner not found"},
-                status=status.HTTP_404_NOT_FOUND,
-                )
 
-    @action(detail=True, methods=["get"], url_path='reviews', url_name='practitioner-reviews')
-    def practitioner_reviews(self, request, pk=None):
-        reviews = Review.objects.filter(id_practitioner_id=pk).prefetch_related('review_tag_set')
+    @action(detail=True, methods=["get"], url_path='reviews', url_name='reviews')
+    def reviews(self, request, *args, **kwargs):
+        reviews = Review.objects.filter(id_practitioner_id=kwargs['pk']).prefetch_related('review_tag_set')
         serializer = ReviewSerializer(reviews, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["patch"], url_path='update-accessibilities', url_name='update-accessibilities')
     async def update_accessibilities(self, request):
         """
         Allows users to update accessibility details for practitioner.
@@ -141,7 +138,7 @@ class PractitionerViewSet(viewsets.ViewSet):
                 {"error": "Practitioner not found"}, status=status.HTTP_404_NOT_FOUND
             )
         practitioner.accessibilities = accessibilities
-        practitioner.asave()
+        await sync_to_async(practitioner.save)()
         return Response(
             PractitionerSerializer(practitioner).data, status=status.HTTP_200_OK
         )

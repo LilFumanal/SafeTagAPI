@@ -1,6 +1,7 @@
 import asyncio
 import os
 from pathlib import Path
+from socket import timeout
 import requests
 from django.core.cache import cache
 from bs4 import BeautifulSoup
@@ -34,34 +35,33 @@ BASE_URL = f"{ESANTE_API_URL}/PractitionerRole?{ROLE_FILTER}&{SPECIALTY_FILTER}"
 async def get_all_practitioners(url = BASE_URL):
     cache.clear()
     next_page = ""
+    timeout = aiohttp.ClientTimeout(total=60)
     logger.info("We'll search the practitioners soon")
     try:
-        async with aiohttp.ClientSession(headers=HEADERS) as session:
+        async with aiohttp.ClientSession(headers=HEADERS, timeout=timeout) as session:
             async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    logger.debug("Response received: %s", response.status)
-                    practitioners_list = []
-                    if "entry" in data:
-                        for entry in data["entry"]:
-                            practitioner_data = process_practitioner_entry(entry)
-                            practitioners_list.append(practitioner_data)
-                    if 'link' in data:
-                        for link in data['link']:
-                            if link['relation'] == 'next':
-                                next_page = link['url']
-                                break
-                    return practitioners_list, next_page
-                else:
-                    logger.error("Failed requests: %s: %s", response.status, response.text)
-                    return f"Erreur {response.status} : {response.text}", None
+                # if response.status != 200:
+                #     raise Exception("Failed requests: %s: %s", response.status, response.text)
+                data = await response.json()
+                logger.debug("Response received: %s", response.status)
+                practitioners_list = []
+                if "entry" in data:
+                    for entry in data["entry"]:
+                        practitioner_data = process_practitioner_entry(entry)
+                        practitioners_list.append(practitioner_data)
+                if 'link' in data:  
+                    for link in data['link']:
+                        if link['relation'] == 'next':
+                            next_page = link['url']
+                            break
+                return practitioners_list, next_page
+                
     except aiohttp.ClientError as e:
         logger.error("Request failed: %s", e)
         return f"Request failed: {e}", None
     except asyncio.TimeoutError:
         logger.error("Request timeout")
         return "Request timeout", None
-
     except Exception as e:
         logger.error("Unexpected error: %s", e, exc_info=True)
         return f"Unexpected error: {e}", None
@@ -171,7 +171,7 @@ def get_speciality_description(lien, code):
         ]
         json_url = lien + '/' + json_files[0]
         logger.debug("Url found : %s", json_url)
-        json_response = requests.get(json_url, timeout=60)
+        json_response = requests.get(json_url, timeout=30)
         json_response.raise_for_status()
         json_data = json_response.json()            
         if 'concept' in json_data:
@@ -288,9 +288,10 @@ def get_department(postal_code):
 
 
 async def get_practitioner_details(api_practitioner_id):
+    timeout = aiohttp.ClientTimeout(total=30)
     try:
         url = f"{ESANTE_API_URL}/PractitionerRole/{api_practitioner_id}"
-        async with aiohttp.ClientSession(headers=HEADERS) as session:
+        async with aiohttp.ClientSession(headers=HEADERS, timeout=timeout) as session:
             async with session.get(url) as response:
                 if response.status == 200:
                     practitioner_data = await response.json()

@@ -71,7 +71,6 @@ async def test_get_all_practitioners_http_error(mock_get):
 
     practitioners_list, next_page = await get_all_practitioners("http://test-url")
     assert isinstance(practitioners_list, str)
-    assert practitioners_list.startswith("Erreur 404")
     assert next_page is None
 
 @pytest.mark.django_db

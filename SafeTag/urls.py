@@ -39,6 +39,7 @@ router.register(r'addresses', AddressViewSet, basename='address')
 router.register(r"reviews", ReviewViewSet)
 
 urlpatterns = [
+    path('', include(router.urls)),
     path("admin", admin.site.urls),
     path('register/', UserCreateView.as_view(), name='register'),
     path('practitioner/async-list/', PractitionerAsyncViews.as_view(),name="practitioner_async_list"),

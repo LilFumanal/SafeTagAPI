@@ -1,126 +1,231 @@
-import os
-import pytest
-from django.test import TestCase, Client
-from django.urls import reverse
-from rest_framework import status
-from SafeTagAPI.models.practitioner_model import Practitioner, Address, Organization
-from SafeTagAPI.models.review_model import Review
-from unittest.mock import patch
 import json
+import os
+from django.test import TestCase
+from django.urls import reverse
+from asgiref.sync import sync_to_async, async_to_sync
+from httpx import AsyncClient
+from rest_framework.test import APIClient
+from unittest.mock import patch
+from django.core.cache import cache
+import pytest
+from rest_framework import status
 from asgiref.sync import sync_to_async
+from unittest.mock import patch, MagicMock
+from django.test import AsyncClient
+from SafeTagAPI.lib.esante_api_treatement import get_all_practitioners
+from SafeTagAPI.models.practitioner_model import Address, Practitioner
+from SafeTagAPI.models.review_model import Pathologie, Review, Review_Pathologie
+from SafeTagAPI.models.tag_model import Review_Tag, Tag
+from SafeTagAPI.models.user_model import CustomUser
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
-@pytest.mark.django_db
-class PractitionerAsyncViewsTest(TestCase):
-
-    def setUp(self):
-        self.client = Client()
+@pytest.mark.django_db(transaction = True)
+@pytest.mark.asyncio
+class TestPractitionerAsyncViews:
+    async def test_get_with_cache_hit(self):
+        client = AsyncClient()
+        cache_key = "practitioner:base_url"
+        cached_data = {'practitioners': [], 'next_page_url': None}
+        cache.set(cache_key, cached_data, timeout=24*60*60)
+        response = await client.get(reverse('practitioner_async_list'))
+        assert response.status_code == 200
+        assert response.json() == cached_data
 
     @patch('SafeTagAPI.views.practitioner_views.get_all_practitioners')
-    def test_get_practitioners(self, mock_get_all_practitioners):
-        mock_get_all_practitioners.return_value = ([], None)
-        response = self.client.get('/practitioner/async-list/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json(), {'practitioners': [], 'next_page_url': None})
+    async def test_get_with_cache_miss(self, mock_get_all_practitioners):
+        client = AsyncClient()
+        cache_key = "practitioner:base_url"
+        practitioners_data = ([], None)
+        mock_get_all_practitioners.return_value = practitioners_data
 
-    @pytest.mark.asyncio
+        response = await client.get(reverse('practitioner_async_list'))
+
+        assert response.status_code == 200
+        assert response.json() == {'practitioners': [], 'next_page_url': None}
+        assert cache.get(cache_key) == {'practitioners': [], 'next_page_url': None}
+
     @patch('SafeTagAPI.views.practitioner_views.get_practitioner_details')
-    async def test_post_practitioner(self, mock_get_practitioner_details):
-        mock_get_practitioner_details.return_value = {
-            'name': 'John',
-            'surname': 'Doe',
-            'api_id': 123,
-            'reimboursement_sector': None,
-            'organizations': [{'api_organization_id':1,'name':"Orga123","addresses":[{
-                "line":"123 Main St",
-                "city":"Test City",
-                "department":10,
-                "latitude":12.34,
-                "longitude":56.78,
-                "wheelchair_accessibility":None,
-                "is_active":True
-            }]}]
+    async def test_post_with_valid_data(self, mock_get_practitioner_details):
+        client = AsyncClient()
+        practitioner_data = {
+            "name": "John",
+            "surname": "Doe",
+            "specialities": ["Cardiology"],
+            "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
+            "organizations": [{
+                "api_organization_id": 1,
+                "name": "Organization",
+                "addresses": [{
+                    "line": "123 Main St",
+                    "city": "Test City",
+                    "department": 10,
+                    "latitude": 12.34,
+                    "longitude": 56.78,
+                    "wheelchair_accessibility": True,
+                    "is_active": True
+                }]
+            }],
+            "api_id": "12345"
         }
-        response = await sync_to_async(self.client.post)(
-            '/practitioner/async-list/',
-            data=json.dumps({'api_id': 123}),
+        mock_get_practitioner_details.return_value = practitioner_data
+
+        response = await client.post(
+            reverse('practitioner_async_list'),
+            data=json.dumps({"api_id": "12345"}),
             content_type='application/json'
         )
-        if response.status_code == status.HTTP_400_BAD_REQUEST:
-            print("Validation errors:", response.json())
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.json()['name'], 'John')
 
-class PractitionerViewSetTest(TestCase):
+        assert response.status_code == 201
+        assert response.json()['name'] == practitioner_data['name']
+        assert response.json()['surname'] == practitioner_data['surname']
 
-    def setUp(self):
-        self.client = Client()
-        self.practitioner = Practitioner.objects.create(name="John", surname="Doe",api_id=1)
+    async def test_post_with_missing_api_id(self):
+        client = AsyncClient()
+        response = await client.post(
+            reverse('practitioner_async_list'),
+            data=json.dumps({}),
+            content_type='application/json'
+        )
 
-    def test_retrieve_practitioner(self):
-        response = self.client.get(f'/practitioner/{self.practitioner.id}/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()['name'], 'John')
+        assert response.status_code == 400
+        assert response.json() == {"error": "API ID is required to fetch practitioner details."}
+
+    @patch('SafeTagAPI.views.practitioner_views.get_practitioner_details')
+    async def test_post_with_invalid_data(self, mock_get_practitioner_details):
+        client = AsyncClient()
+        mock_get_practitioner_details.return_value = None
+
+        response = await client.post(
+            reverse('practitioner_async_list'),
+            data=json.dumps({"api_id": "invalid_id"}),
+            content_type='application/json'
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {"error": "Failed to fetch practitioner details from the external API."}
+
+
+@pytest.mark.django_db
+class TestPractitionerView:
+    def test_retrieve_practitioner_found(self):
+        client = APIClient()
+        practitioner = Practitioner.objects.create(
+            name="John",
+            surname="Doe",
+            specialities=["Cardiology"],
+            api_id="12345"
+        )
+        url = reverse('practitioner-detail', args=[practitioner.id])
+        response = client.get(url)
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['name'] == practitioner.name
+        assert response.data['surname'] == practitioner.surname
+
+    def test_retrieve_practitioner_not_found(self):
+        client = APIClient()
+        url = reverse('practitioner-detail', args=[999])
+        response = client.get(url)
+        
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.data['detail'] == "No Practitioner matches the given query."
 
     @patch('SafeTagAPI.models.practitioner_model.Practitioner.get_tag_averages')
-    def test_retrieve_practitioner_with_tags(self, mock_get_tag_averages):
-        mock_get_tag_averages.return_value = []
-        response = self.client.get(f'/practitioner/{self.practitioner.id}/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('tag_summary_list', response.json())
+    def test_retrieve_practitioner_with_tag_averages(self,mock_get_tag_averages):
+        client = APIClient()
+        practitioner = Practitioner.objects.create(
+            name="John",
+            surname="Doe",
+            specialities=["Cardiology"],
+            api_id="12345"
+        )
+        mock_get_tag_averages.return_value = {'tag1': 5, 'tag2': 3}
+        url = reverse('practitioner-detail', args=[practitioner.id])
+        response = client.get(url)
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['name'] == practitioner.name
+        assert response.data['surname'] == practitioner.surname
+        assert response.data['tag_summary_list'] == {'tag1': 5, 'tag2': 3}
 
     def test_practitioner_reviews(self):
-        review = Review.objects.create(
-            review_date="2023-01-01",
-            comment="Test Comment",
-            id_user_id=1,
-            id_practitioner=self.practitioner,
-            id_address_id=1
+        client = APIClient()
+        user = CustomUser.objects.create(email='testuser@user.fr')
+        practitioner = Practitioner.objects.create(
+            name="John",
+            surname="Doe",
+            specialities=["Cardiology"],
+            api_id="12345"
         )
-        response = self.client.get(f'/practitioner/{self.practitioner.id}/reviews/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.json()), 1)
-
-class AddressViewSetTest(TestCase):
-
-    def setUp(self):
-        self.client = Client()
-        self.address = Address.objects.create(
+        address = Address.objects.create(
             line="123 Main St",
             city="Test City",
-            department=1,
+            department=10,
             latitude=12.34,
-            longitude=56.78,
-            wheelchair_accessibility=True,
-            is_active=True
+            longitude=56.78
         )
-
-    def test_update_wheelchair_accessibility(self):
-        response = self.client.patch(
-            f'/address/{self.address.id}/',
-            data=json.dumps({'wheelchair_accessibility': False}),
-            content_type='application/json'
+        review = Review.objects.create(
+            id_practitioner=practitioner,
+            id_user_id=1,
+            id_address_id=1,
+            review_date="2025-03-17",
+            comment="Excellent"
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()['wheelchair_accessibility'], False)
-
-    def test_update_invalid_field(self):
-        response = self.client.patch(
-            f'/address/{self.address.id}/',
-            data=json.dumps({'city': 'New City'}),
-            content_type='application/json'
+        pathologie = Pathologie.objects.create(
+            name="Pathologie1",
+            description="Description1"
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.json()['error'], 'Only wheelchair_accessibility can be updated.')
+        Review_Pathologie.objects.create(
+            id_review=review,
+            id_pathologie=pathologie
+        )
+        tag = Tag.objects.create(
+            type="Professionalism"
+        )
+        Review_Tag.objects.create(
+            id_review=review,
+            id_tag=tag,
+            rates=1
+        )
+        url = reverse('practitioner-reviews', args=[practitioner.id])
+        response = client.get(url)
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 1
+        assert response.data[0]['comment'] == review.comment
+        assert response.data[0]['review_date'] == str(review.review_date)
+        assert len(response.data[0]['pathologies']) == 1
+        assert len(response.data[0]['tags']) == 1
 
-class OrganizationViewSetTest(TestCase):
+    @pytest.mark.asyncio
+    async def test_update_accessibilities(self):
+        client = AsyncClient()
+        practitioner = await sync_to_async(Practitioner.objects.create)(
+            name="John",
+            surname="Doe",
+            specialities=["Cardiology"],
+            api_id="12345"
+        )
+        url = reverse('practitioner-update-accessibilities')
+        data = {
+            "api_id": "12345",
+            "accessibilities": {"LSF": "Yes", "Visio": "Yes"}
+        }
+        response = await client.post(url, data=json.dumps(data), content_type='application/json')
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()['accessibilities'] == data['accessibilities']
 
-    def setUp(self):
-        self.client = Client()
-        self.organization = Organization.objects.create(name="Test Organization")
-
-    def test_retrieve_organization(self):
-        response = self.client.get(f'/organization/{self.organization.id}/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()['name'], 'Test Organization')
+    @pytest.mark.asyncio
+    async def test_update_accessibilities_practitioner_not_found(self):
+        client = AsyncClient()
+        url = reverse('practitioner-update-accessibilities')
+        data = {
+            "api_id": "invalid_id",
+            "accessibilities": {"LSF": "Yes", "Visio": "Yes"}
+        }
+        response = await client.post(url, data=json.dumps(data), content_type='application/json')
+        
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json() == {"error": "Practitioner not found"}

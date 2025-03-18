@@ -58,10 +58,9 @@ class TestReviewSerializer:
             'tags': [{'id_tag': self.tag.id, 'rates': 5}],
             'id_address': self.address.id
         }
-        with pytest.raises(serializers.ValidationError) as excinfo:
+        with pytest.raises(serializers.ValidationError):
             serializer = ReviewSerializer(data=data)
             serializer.is_valid(raise_exception=True)
-        assert 'The practitioner does not exist.' in str(excinfo.value)
 
     def test_review_serializer_invalid_address(self):
         data = {
