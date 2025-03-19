@@ -6,7 +6,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.views import View
 from django.http import JsonResponse
-from django.core.cache import cache
+from aiocache import Cache
+from aiocache.serializers import JsonSerializer
 import psutil
 import json
 from ..lib.logger import Logger
@@ -24,7 +25,13 @@ from ..serializers.review_serializer import ReviewSerializer
 from ..lib.esante_api_treatement import get_practitioner_details, get_all_practitioners
 
     
-
+cache = Cache(
+    Cache.REDIS, 
+    endpoint="localhost",  # Modifier selon ta config Redis
+    port=6379,  
+    serializer=JsonSerializer(), 
+    timeout=24 * 60 * 60  # Cache 24h
+)
 logger = Logger(__name__).get_logger()
 
 def log_open_files():
@@ -43,9 +50,10 @@ class PractitionerAsyncViews(View):
                 cache_key = f"practitioner:{page_url}"
             else:
                 cache_key = f"practitioner:base_url"
-            logger.info(f"Generated cache key: {cache_key}")
-            cached_data = cache.get(cache_key)
-            logger.info("Checked cache.")
+            logger.info(f"Generated caches key: {cache_key}")
+            with asyncio.Runner() as runner:
+                runner.run(cache.get(cache_key,))
+            logger.info("Checked caches.")
             if cached_data:
                 logger.info(f"Cache hit for key: {cache_key}.")
                 return JsonResponse(cached_data, status=200)
@@ -55,8 +63,7 @@ class PractitionerAsyncViews(View):
                 'practitioners': practitioners,
                 'next_page_url': next_page_url
             }
-            cache.set(cache_key, response_data, timeout=24*60*60) #cache 24h
-            return JsonResponse(response_data, status=200)
+            cache.set(cache_key, response_data, timeout=24*60*60) 
         except Exception as e:
             logger.error(f"Error during async operation: {e}")
             return JsonResponse({'error': e}, status=500)

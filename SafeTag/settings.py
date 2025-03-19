@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import environ
 import dj_database_url
+import aiocache
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -160,16 +161,13 @@ else:
             "PORT": env.str("DB_PORT"),
         }
     }
-    CACHES = {
-        'default': {
-            'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': 'redis://127.0.0.1:6379/1',  # Adjust the Redis server address and database
-            'OPTIONS': {
-                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            }
-        }
+    AIOCACHE_BACKEND = "aiocache.backends.RedisCache"
+    AIOCACHE_OPTIONS = {
+    "endpoint": "127.0.0.1",
+    "port": 6379,
+    "timeout": 1,
+    "namespace": "main"
     }
-
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [

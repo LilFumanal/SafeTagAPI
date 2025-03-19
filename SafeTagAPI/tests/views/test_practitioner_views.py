@@ -6,7 +6,7 @@ from asgiref.sync import sync_to_async, async_to_sync
 from httpx import AsyncClient
 from rest_framework.test import APIClient
 from unittest.mock import patch
-from django.core.cache import cache
+from aiocache imports caches
 import pytest
 from rest_framework import status
 from asgiref.sync import sync_to_async
@@ -27,7 +27,7 @@ class TestPractitionerAsyncViews:
         client = AsyncClient()
         cache_key = "practitioner:base_url"
         cached_data = {'practitioners': [], 'next_page_url': None}
-        cache.set(cache_key, cached_data, timeout=24*60*60)
+        caches.set(cache_key, cached_data, timeout=24*60*60)
         response = await client.get(reverse('practitioner_async_list'))
         assert response.status_code == 200
         assert response.json() == cached_data
@@ -43,7 +43,7 @@ class TestPractitionerAsyncViews:
 
         assert response.status_code == 200
         assert response.json() == {'practitioners': [], 'next_page_url': None}
-        assert cache.get(cache_key) == {'practitioners': [], 'next_page_url': None}
+        assert caches.get(cache_key) == {'practitioners': [], 'next_page_url': None}
 
     @patch('SafeTagAPI.views.practitioner_views.get_practitioner_details')
     async def test_post_with_valid_data(self, mock_get_practitioner_details):

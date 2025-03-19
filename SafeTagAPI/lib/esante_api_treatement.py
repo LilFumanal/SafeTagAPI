@@ -2,8 +2,8 @@ import asyncio
 import os
 from pathlib import Path
 from socket import timeout
+from aiocache import caches
 import requests
-from django.core.cache import cache
 from bs4 import BeautifulSoup
 import aiohttp
 import logging
@@ -33,15 +33,12 @@ BASE_URL = f"{ESANTE_API_URL}/PractitionerRole?{ROLE_FILTER}&{SPECIALTY_FILTER}"
 
 # Envoyer la requête
 async def get_all_practitioners(url = BASE_URL):
-    cache.clear()
     next_page = ""
     timeout = aiohttp.ClientTimeout(total=60)
     logger.info("We'll search the practitioners soon")
     try:
         async with aiohttp.ClientSession(headers=HEADERS, timeout=timeout) as session:
             async with session.get(url) as response:
-                # if response.status != 200:
-                #     raise Exception("Failed requests: %s: %s", response.status, response.text)
                 data = await response.json()
                 logger.debug("Response received: %s", response.status)
                 practitioners_list = []
@@ -110,7 +107,7 @@ def extract_name_and_surname(extensions):
 
 def get_organization_info(org_reference):
     org_url = f"{ESANTE_API_URL}/{org_reference}"
-    cached_result = cache.get(org_url)
+    cached_result = caches.get(org_url)
     if cached_result is not None:
         return cached_result
     try:
@@ -127,7 +124,7 @@ def get_organization_info(org_reference):
                     "api_organization_id": api_organization_id,
                     "addresses": org_addresses,
                 }
-                cache.set(org_url, (organization_info, org_addresses), timeout=24*60*60)
+                caches.set(org_url, (organization_info, org_addresses), timeout=24*60*60)
             return organization_info, org_addresses
         else:
             return None, None
@@ -155,10 +152,10 @@ def get_specialities(specialities):
 
 
 def get_speciality_description(lien, code):
-    # Generate a cache key based on the parameters
+    # Generate a caches key based on the parameters
     cache_key = f"specialty_{lien}_{code}"
-    # Try to get the result from the cache
-    cached_result = cache.get(cache_key)
+    # Try to get the result from the caches
+    cached_result = caches.get(cache_key)
     if cached_result is not None:
         return cached_result
     try:
@@ -180,7 +177,7 @@ def get_speciality_description(lien, code):
             for concept in concepts:
                 if code == concept.get('code'):
                     description = concept.get('display') or concept.get('description')
-                    cache.set(cache_key, description)
+                    caches.set(cache_key, description)
                     descriptions.append(description)
             return description
         else:
