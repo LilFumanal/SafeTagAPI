@@ -6,7 +6,6 @@ from asgiref.sync import sync_to_async, async_to_sync
 from httpx import AsyncClient
 from rest_framework.test import APIClient
 from unittest.mock import patch
-from aiocache imports caches
 import pytest
 from rest_framework import status
 from asgiref.sync import sync_to_async
@@ -20,30 +19,18 @@ from SafeTagAPI.models.user_model import CustomUser
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
-@pytest.mark.django_db(transaction = True)
 @pytest.mark.asyncio
+@pytest.mark.django_db(transaction = True)
 class TestPractitionerAsyncViews:
-    async def test_get_with_cache_hit(self):
-        client = AsyncClient()
-        cache_key = "practitioner:base_url"
-        cached_data = {'practitioners': [], 'next_page_url': None}
-        caches.set(cache_key, cached_data, timeout=24*60*60)
-        response = await client.get(reverse('practitioner_async_list'))
-        assert response.status_code == 200
-        assert response.json() == cached_data
 
     @patch('SafeTagAPI.views.practitioner_views.get_all_practitioners')
-    async def test_get_with_cache_miss(self, mock_get_all_practitioners):
+    async def test_get(self, mock_get_all_practitioners):
         client = AsyncClient()
-        cache_key = "practitioner:base_url"
         practitioners_data = ([], None)
         mock_get_all_practitioners.return_value = practitioners_data
-
         response = await client.get(reverse('practitioner_async_list'))
-
         assert response.status_code == 200
         assert response.json() == {'practitioners': [], 'next_page_url': None}
-        assert caches.get(cache_key) == {'practitioners': [], 'next_page_url': None}
 
     @patch('SafeTagAPI.views.practitioner_views.get_practitioner_details')
     async def test_post_with_valid_data(self, mock_get_practitioner_details):

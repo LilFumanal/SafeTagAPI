@@ -46,29 +46,15 @@ class PractitionerAsyncViews(View):
         try:
             page_url = request.GET.get('page_url', '', timeout=5)
             log_open_files()
-            if page_url:
-                cache_key = f"practitioner:{page_url}"
-            else:
-                cache_key = f"practitioner:base_url"
-            logger.info(f"Generated caches key: {cache_key}")
-            with asyncio.Runner() as runner:
-                runner.run(cache.get(cache_key,))
-            logger.info("Checked caches.")
-            if cached_data:
-                logger.info(f"Cache hit for key: {cache_key}.")
-                return JsonResponse(cached_data, status=200)
-            logger.info("Cache miss. Fetching data from API.")
             practitioners, next_page_url = await get_all_practitioners()
             response_data = {
                 'practitioners': practitioners,
                 'next_page_url': next_page_url
             }
-            cache.set(cache_key, response_data, timeout=24*60*60) 
+            return JsonResponse(response_data, status=200)
         except Exception as e:
             logger.error(f"Error during async operation: {e}")
             return JsonResponse({'error': e}, status=500)
-        finally:
-            log_open_files()
         
     async def post(self, request, *args, **kwargs):
         try:
