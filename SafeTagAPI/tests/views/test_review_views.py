@@ -3,6 +3,7 @@ import os
 from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
+import pytest
 from rest_framework import status
 from SafeTagAPI.models.review_model import Review, Pathologie
 from SafeTagAPI.models.tag_model import Review_Tag, Tag
@@ -59,14 +60,15 @@ class ReviewViewSetTests(TestCase):
             "id_address": self.address2.id,
             "review_date": date.today()
         }
-    
+    @pytest.mark.django_db
     def test_create_review(self):
         url = reverse("review-list")
         response = self.client.post(url, self.review_data, content_type="application/json")
         print(response.status_code, response.data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Review.objects.count(), 2)
-        
+    
+    @pytest.mark.django_db
     @patch("SafeTagAPI.lib.esante_api_treatement.get_practitioner_details")
     def test_create_review_fetch_practitioner_success(self, mock_get_practitioner_details):
         """
@@ -88,7 +90,7 @@ class ReviewViewSetTests(TestCase):
         self.assertTrue(Practitioner.objects.filter(api_id=99999).exists())
         self.assertEqual(Review.objects.count(), 2)
 
-
+    @pytest.mark.django_db
     @patch("SafeTagAPI.lib.esante_api_treatement.get_practitioner_details")
     def test_create_review_fetch_practitioner_failure(self, mock_get_practitioner_details):
         """

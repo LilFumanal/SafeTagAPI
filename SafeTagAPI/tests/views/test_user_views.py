@@ -11,7 +11,8 @@ class UserCreateViewTests(APITestCase):
             'password': 'testpassword123',
             'email': 'testuser@example.com'
         }
-        response = self.client.post(url, data, content_type='application/json')
+        response = self.client.post(url, json.dumps(data), content_type='application/json')
+        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(CustomUser.objects.count(), 1)
         

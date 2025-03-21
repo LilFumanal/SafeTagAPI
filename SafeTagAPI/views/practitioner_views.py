@@ -36,8 +36,8 @@ class PractitionerAsyncViews(View):
     async def get(self, request, *args, **kwargs):
         try:
             page_url = request.GET.get('page_url', '')
-            log_open_files()
-            practitioners, next_page_url = await get_all_practitioners(url=page_url)
+            logger.debug("dans la view")
+            practitioners, next_page_url = await get_all_practitioners()
             return JsonResponse({
                 'practitioners': practitioners,
                 'next_page_url': next_page_url

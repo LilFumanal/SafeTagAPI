@@ -37,7 +37,7 @@ BASE_URL = f"{ESANTE_API_URL}/PractitionerRole?{ROLE_FILTER}&{SPECIALTY_FILTER}"
 async def get_all_practitioners(url = BASE_URL):
     next_page = ""
     timeout = aiohttp.ClientTimeout(total=60)
-    logger.info("We'll search the practitioners soon")
+    logger.debug("We'll search the practitioners soon")
     try:
         async with aiohttp.ClientSession(headers=HEADERS, timeout=timeout) as session:
             async with session.get(url) as response:
@@ -77,7 +77,7 @@ async def process_practitioner_entry(entry):
     organization_info, org_addresses = await get_organization_info(organization_reference)
     if not organization_info or not org_addresses:
         return None
-    specialties = get_specialities(practitioner_role.get("specialty", []))
+    specialties = await get_specialities(practitioner_role.get("specialty", []))
     sector = get_speciality_reimboursement_sector(practitioner_role.get("code", []))
 
     practitioner_data = {
