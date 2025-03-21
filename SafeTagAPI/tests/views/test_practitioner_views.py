@@ -19,19 +19,21 @@ from SafeTagAPI.models.user_model import CustomUser
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
-@pytest.mark.asyncio
-@pytest.mark.django_db(transaction = True)
 class TestPractitionerAsyncViews:
 
+    @pytest.mark.asyncio
+    @pytest.mark.django_db(transaction = True)
     @patch('SafeTagAPI.views.practitioner_views.get_all_practitioners')
     async def test_get(self, mock_get_all_practitioners):
         client = AsyncClient()
         practitioners_data = ([], None)
         mock_get_all_practitioners.return_value = practitioners_data
-        response = await client.get(reverse('practitioner_async_list'))
+        response = await client.get(reverse('practitioners'))
         assert response.status_code == 200
         assert response.json() == {'practitioners': [], 'next_page_url': None}
-
+        
+    @pytest.mark.asyncio
+    @pytest.mark.django_db
     @patch('SafeTagAPI.views.practitioner_views.get_practitioner_details')
     async def test_post_with_valid_data(self, mock_get_practitioner_details):
         client = AsyncClient()
@@ -53,48 +55,82 @@ class TestPractitionerAsyncViews:
                     "is_active": True
                 }]
             }],
-            "api_id": "12345"
+            "api_id": 12345
         }
         mock_get_practitioner_details.return_value = practitioner_data
 
         response = await client.post(
-            reverse('practitioner_async_list'),
-            data=json.dumps({"api_id": "12345"}),
+            reverse('practitioners'),
+            data=json.dumps({"api_id": 12345}),
             content_type='application/json'
         )
-
         assert response.status_code == 201
         assert response.json()['name'] == practitioner_data['name']
         assert response.json()['surname'] == practitioner_data['surname']
 
+    @pytest.mark.asyncio
+    @pytest.mark.django_db
     async def test_post_with_missing_api_id(self):
         client = AsyncClient()
         response = await client.post(
-            reverse('practitioner_async_list'),
+            reverse('practitioners'),
             data=json.dumps({}),
             content_type='application/json'
         )
-
         assert response.status_code == 400
         assert response.json() == {"error": "API ID is required to fetch practitioner details."}
 
+    @pytest.mark.asyncio
+    @pytest.mark.django_db
     @patch('SafeTagAPI.views.practitioner_views.get_practitioner_details')
     async def test_post_with_invalid_data(self, mock_get_practitioner_details):
         client = AsyncClient()
         mock_get_practitioner_details.return_value = None
-
         response = await client.post(
-            reverse('practitioner_async_list'),
+            reverse('practitioners'),
             data=json.dumps({"api_id": "invalid_id"}),
             content_type='application/json'
         )
-
         assert response.status_code == 400
         assert response.json() == {"error": "Failed to fetch practitioner details from the external API."}
+
+    @pytest.mark.asyncio
+    @pytest.mark.django_db
+    async def test_patch(self):
+        client = AsyncClient()
+        practitioner = await sync_to_async(Practitioner.objects.create)(
+            name="John",
+            surname="Doe",
+            specialities=["Cardiology"],
+            api_id=12345
+        )
+        url = reverse('practitioners')
+        data = {
+            "api_id": 12345,
+            "accessibilities": {"LSF": "Yes", "Visio": "Yes"}
+        }
+        response = await client.patch(url, data=json.dumps(data), content_type='application/json')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()['accessibilities'] == data['accessibilities']
+
+    @pytest.mark.asyncio
+    @pytest.mark.django_db
+    async def test_patch_practitioner_not_found(self):
+        client = AsyncClient()
+        url = reverse('practitioners')
+        data = {
+            "api_id": 125,
+            "accessibilities": {"LSF": "Yes", "Visio": "Yes"}
+        }
+        response = await client.patch(url, data=json.dumps(data), content_type='application/json')
+        
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json() == {"error": "Practitioner not found"}
 
 
 @pytest.mark.django_db
 class TestPractitionerView:
+    
     def test_retrieve_practitioner_found(self):
         client = APIClient()
         practitioner = Practitioner.objects.create(
@@ -184,35 +220,3 @@ class TestPractitionerView:
         assert response.data[0]['review_date'] == str(review.review_date)
         assert len(response.data[0]['pathologies']) == 1
         assert len(response.data[0]['tags']) == 1
-
-    @pytest.mark.asyncio
-    async def test_update_accessibilities(self):
-        client = AsyncClient()
-        practitioner = await sync_to_async(Practitioner.objects.create)(
-            name="John",
-            surname="Doe",
-            specialities=["Cardiology"],
-            api_id="12345"
-        )
-        url = reverse('practitioner-update-accessibilities')
-        data = {
-            "api_id": "12345",
-            "accessibilities": {"LSF": "Yes", "Visio": "Yes"}
-        }
-        response = await client.post(url, data=json.dumps(data), content_type='application/json')
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json()['accessibilities'] == data['accessibilities']
-
-    @pytest.mark.asyncio
-    async def test_update_accessibilities_practitioner_not_found(self):
-        client = AsyncClient()
-        url = reverse('practitioner-update-accessibilities')
-        data = {
-            "api_id": "invalid_id",
-            "accessibilities": {"LSF": "Yes", "Visio": "Yes"}
-        }
-        response = await client.post(url, data=json.dumps(data), content_type='application/json')
-        
-        assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert response.json() == {"error": "Practitioner not found"}
