@@ -26,13 +26,6 @@ from SafeTagAPI.views.practitioner_views import PractitionerAsyncViews, AddressV
 from SafeTagAPI.views.review_views import ReviewViewSet
 from SafeTagAPI.views.user_views import UserCreateView
 
-
-async def simple_async_view(request):
-    print("Simple async view called")
-    return JsonResponse({'message': 'Async view working'})
-
-
-
 router = routers.DefaultRouter()
 router.register(r'practitioner', PractitionerViewSet, basename='practitioner')
 router.register(r'addresses', AddressViewSet, basename='address')
@@ -42,7 +35,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path("admin", admin.site.urls),
     path('register/', UserCreateView.as_view(), name='register'),
-    path('practitioner/async-list/', PractitionerAsyncViews.as_view(),name="practitioner_async_list"),
+    path('practitioners/', PractitionerAsyncViews.as_view(),name="practitioners"),
     path('api/token/', TokenObtainPairView.as_view(serializer_class=CustomTokenObtainPairSerializer), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(serializer_class=CustomTokenRefreshSerializer), name='token_refresh'),
 ]

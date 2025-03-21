@@ -17,10 +17,17 @@ def test_admin_url(client):
     url = reverse('admin:index')
     assert resolve(url).func.__name__ == 'index'
 
+<<<<<<< Updated upstream
 @pytest.mark.django_db
 def test_practitioner_async_list_url(client):
     url = reverse('practitioner_async_list')
     assert resolve(url).func.cls == PractitionerAsyncViews
+=======
+# @pytest.mark.django_db
+# def test_practitioner_async_list_url(client):
+#     url = reverse('practitioner_async_list')
+#     assert resolve(url).func.view_class == PractitionerAsyncViews
+>>>>>>> Stashed changes
 
 @pytest.mark.django_db
 def test_user_viewset_url(client):
