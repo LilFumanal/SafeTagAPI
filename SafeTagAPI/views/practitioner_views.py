@@ -1,31 +1,27 @@
 import os
-from django.shortcuts import render
+from socket import timeout
+from asgiref.sync import sync_to_async
 from rest_framework import viewsets, filters, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from asgiref.sync import sync_to_async
 from django.views import View
-from django.template.loader import render_to_string
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
-from django.core.cache import cache
+from django.http import JsonResponse
 import psutil
 import json
-from ..lib.logger import Logger
-from ..models.review_model import Review
-from ..models.tag_model import Tag
-from ..models.practitioner_model import (
-    Practitioners,
-    Practitioner_Address,
+from SafeTagAPI.lib.logger import Logger
+from SafeTagAPI.models.review_model import Review
+from SafeTagAPI.models.practitioner_model import (
+    Practitioner,
+    Address,
     Organization)
-from ..serializers.practitioner_serializer import (
+from SafeTagAPI.serializers.practitioner_serializer import (
     PractitionerSerializer,
-    PractitionerAddressSerializer,
+    AddressSerializer,
     OrganizationSerializer,
 )
-from ..serializers.review_serializer import ReviewSerializer
-from ..lib.esante_api_treatement import get_practitioner_details, get_all_practitioners
+from SafeTagAPI.serializers.review_serializer import ReviewSerializer
+from SafeTagAPI.lib.esante_api_treatement import get_practitioner_details, get_all_practitioners
 
-    
 
 logger = Logger(__name__).get_logger()
 
@@ -33,7 +29,7 @@ def log_open_files():
     process = psutil.Process(os.getpid())
     open_files = process.open_files()
     print(f"Open files: {len(open_files)}")
-    open_connections = process.connections()
+    open_connections = process.net_connections()
     print(f"Open connections: {len(open_connections)}")
     
 class PractitionerAsyncViews(View):
@@ -41,29 +37,14 @@ class PractitionerAsyncViews(View):
         try:
             page_url = request.GET.get('page_url', '')
             log_open_files()
-            if page_url:
-                cache_key = f"practitioners:{page_url}"
-            else:
-                cache_key = f"practitioners:base_url"
-            logger.info(f"Generated cache key: {cache_key}")
-            cached_data = cache.get(cache_key)
-            logger.info("Checked cache.")
-            if cached_data:
-                logger.info(f"Cache hit for key: {cache_key}.")
-                return JsonResponse(cached_data, status=200)
-            logger.info("Cache miss. Fetching data from API.")
-            practitioners, next_page_url = await get_all_practitioners()
-            response_data = {
+            practitioners, next_page_url = await get_all_practitioners(url=page_url)
+            return JsonResponse({
                 'practitioners': practitioners,
                 'next_page_url': next_page_url
-            }
-            cache.set(cache_key, response_data, timeout=24*60*60) #cache 24h
-            return JsonResponse(response_data, status=200)
+            }, status=200)
         except Exception as e:
             logger.error(f"Error during async operation: {e}")
-            return JsonResponse({'error': e}, status=500)
-        finally:
-            log_open_files()
+            return JsonResponse({'error': str(e)}, status=500)
         
     async def post(self, request, *args, **kwargs):
         try:
@@ -80,24 +61,45 @@ class PractitionerAsyncViews(View):
                     {"error": "Failed to fetch practitioner details from the external API."},
                     status=400
                 )
+            print(practitioner_data)
             serializer = PractitionerSerializer(data=practitioner_data)
             if serializer.is_valid():
-                practitioner = serializer.save()
+                practitioner = await sync_to_async(serializer.save)()
                 return JsonResponse(PractitionerSerializer(practitioner).data, status=201)
             else:
                 return JsonResponse(serializer.errors, status=400)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON."}, status=400)
         except Exception as e:
-            print("Error during async operation:", e)
-            return JsonResponse({'error': e}, status=500)
+            logger.error(f"Error during async operation: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+        
+    async def patch(self, request,*args, **kwargs):
+        """
+        Allows users to update accessibility details for practitioner.
+        """
+        try:
+            body = json.loads(request.body)
+            api_id = body.get("api_id")
+            accessibilities = body.get("accessibilities")
 
-class PractitionerViewSet(viewsets.ViewSet):
-    """
-    Provides only read operations on Practitioners since their data is managed externally.
-    """
+            practitioner = await sync_to_async(Practitioner.objects.get)(api_id=api_id)
+            practitioner.accessibilities = accessibilities
+            await sync_to_async(practitioner.save)()
+            return JsonResponse(
+                PractitionerSerializer(practitioner).data, status=200
+            )
+        except Practitioner.DoesNotExist:
+            return JsonResponse(
+                {"error": "Practitioner not found"}, status=404
+            )
+        except Exception as e:
+            logger.error(f"Error during async operation: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
 
-    queryset = Practitioners.objects.all()
+class PractitionerViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """
+    Provides only read operations on Practitioner since their data is managed externally.
+    """
+    queryset = Practitioner.objects.all()
     serializer_class = PractitionerSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
@@ -110,9 +112,10 @@ class PractitionerViewSet(viewsets.ViewSet):
         "accessibilites"
     ]
     ordering_fields = ["name", "surname", "api_id"]
-
+        
     def retrieve(self, request, *args, **kwargs):
-        practitioner = self.get_object()
+        from django.shortcuts import get_object_or_404
+        practitioner = get_object_or_404(Practitioner, pk=kwargs['pk'])
         practitioner_data = PractitionerSerializer(practitioner).data
         if practitioner_data:
             tag_averages = practitioner.get_tag_averages()
@@ -121,46 +124,21 @@ class PractitionerViewSet(viewsets.ViewSet):
                     "tag_summary_list": tag_averages,  # Add tag summary list
             }
             return Response(response_data)
-        else:
-            return Response(
-                {"error": "Practitioner not found"},
-                status=status.HTTP_404_NOT_FOUND,
-                )
 
-    @action(detail=True, methods=["get"], url_path='reviews', url_name='practitioner-reviews')
-    def practitioner_reviews(self, request, pk=None):
-        reviews = Review.objects.filter(id_practitioners_id=pk).prefetch_related('review_tag_set')
+    @action(detail=True, methods=["get"], url_path='reviews', url_name='reviews')
+    def reviews(self, request, *args, **kwargs):
+        reviews = Review.objects.filter(id_practitioner_id=kwargs['pk']).prefetch_related('review_tag_set')
         serializer = ReviewSerializer(reviews, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=["post"])
-    async def update_accessibilities(self, request):
-        """
-        Allows users to update accessibility details for practitioners.
-        """
-        api_id = request.data.get("api_id")
-        accessibilities = request.data.get("accessibilities")
 
-        try:
-            practitioner = await Practitioners.objects.aget(api_id=api_id)
-        except Practitioners.DoesNotExist:
-            return Response(
-                {"error": "Practitioner not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        practitioner.accessibilities = accessibilities
-        practitioner.asave()
-        return Response(
-            PractitionerSerializer(practitioner).data, status=status.HTTP_200_OK
-        )
-
-
-class PractitionerAddressViewSet(mixins.UpdateModelMixin, mixins.RetrieveModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+class AddressViewSet(mixins.UpdateModelMixin, mixins.RetrieveModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     """
     Allows updating only the wheelchair accessibility for Practitioner Addresses.
     """
 
-    queryset = Practitioner_Address.objects.all()
-    serializer_class = PractitionerAddressSerializer
+    queryset = Address.objects.all()
+    serializer_class = AddressSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ["line", "city", "department", "wheelchair_accessibility"]
 
@@ -175,7 +153,7 @@ class PractitionerAddressViewSet(mixins.UpdateModelMixin, mixins.RetrieveModelMi
         if "wheelchair_accessibility" in data:
             instance.wheelchair_accessibility = data["wheelchair_accessibility"]
             instance.save()
-            return Response(PractitionerAddressSerializer(instance).data)
+            return Response(AddressSerializer(instance).data)
         else:
             return Response(
                 {"error": "Only wheelchair_accessibility can be updated."},

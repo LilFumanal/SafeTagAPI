@@ -17,30 +17,26 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework import routers
-
-from SafeTagAPI.views.practitioner_views import PractitionerAsyncViews, PractitionerAddressViewSet, PractitionerViewSet
-from SafeTagAPI.views.review_views import ReviewViewSet
-from SafeTagAPI.views.user_views import UserViewSet
-
 from django.http import JsonResponse
-from django.urls import path
+from rest_framework import routers
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-async def simple_async_view(request):
-    print("Simple async view called")
-    return JsonResponse({'message': 'Async view working'})
-
-
+from SafeTagAPI.serializers.user_serializer import CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
+from SafeTagAPI.views.practitioner_views import PractitionerAsyncViews, AddressViewSet, PractitionerViewSet
+from SafeTagAPI.views.review_views import ReviewViewSet
+from SafeTagAPI.views.user_views import UserCreateView
 
 router = routers.DefaultRouter()
-router.register(r"users", UserViewSet, basename="user")
 router.register(r'practitioner', PractitionerViewSet, basename='practitioner')
-router.register(r'addresses', PractitionerAddressViewSet, basename='address')
+router.register(r'addresses', AddressViewSet, basename='address')
 router.register(r"reviews", ReviewViewSet)
 
 urlpatterns = [
+    path('', include(router.urls)),
     path("admin", admin.site.urls),
-    path('simple-async/', simple_async_view),
-    path('practitioner/async-list/', PractitionerAsyncViews.as_view())
+    path('register/', UserCreateView.as_view(), name='register'),
+    path('practitioners/', PractitionerAsyncViews.as_view(),name="practitioners"),
+    path('api/token/', TokenObtainPairView.as_view(serializer_class=CustomTokenObtainPairSerializer), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(serializer_class=CustomTokenRefreshSerializer), name='token_refresh'),
 ]
 urlpatterns += router.urls

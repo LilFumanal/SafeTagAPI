@@ -82,16 +82,16 @@ Run the following command to launch the Django server :
 
 ### Practitioners
 
-- **Get Practitioner Details**: `GET /practitioners/{id}/`
+- **Get Practitioner Details**: `GET /practitioner/{id}/`
 
   - Retrieves details of a specific practitioner, including tag averages.
 
-- **Get Reviews for a Practitioner**: `GET /practitioners/{id}/reviews/`
+- **Get Reviews for a Practitioner**: `GET /practitioner/{id}/reviews/`
 
   - Retrieves all reviews for a specific practitioner.
 
-- **Update Practitioner Accessibilities**: `POST /practitioners/update_accessibilities/`
-  - Allows users to update accessibility details for practitioners.
+- **Update Practitioner Accessibilities**: `POST /practitioner/update_accessibilities/`
+  - Allows users to update accessibility details for a practitioner.
   - Example request body:
     ```json
     {

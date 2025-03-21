@@ -1,15 +1,17 @@
 from rest_framework import serializers
 from ..models.practitioner_model import (
-    Practitioners,
+    Practitioner,
     Professional_Tag_Score,
-    Practitioner_Address,
+    Address,
     Organization,
 )
+import logging
 
+logger = logging.getLogger(__name__)
 
-class PractitionerAddressSerializer(serializers.ModelSerializer):
+class AddressSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Practitioner_Address
+        model = Address
         fields = [
             "line",
             "city",
@@ -17,117 +19,116 @@ class PractitionerAddressSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "wheelchair_accessibility",
+            "is_active"
         ]
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
-    addresses = PractitionerAddressSerializer(many=True)
+    addresses = AddressSerializer(many=True)
 
     class Meta:
         model = Organization
         fields = ["api_organization_id", "name", "addresses"]
+    
+    def get_addresses(self, obj):
+        # Filtrer les adresses actives
+        addresses = obj.addresses.filter(is_active=True)
+        return AddressSerializer(addresses, many=True).data
 
 
 class PractitionerSerializer(serializers.ModelSerializer):
-    addresses = PractitionerAddressSerializer(many=True)
     organizations = OrganizationSerializer(many=True)
 
     class Meta:
-        model = Practitioners
+        model = Practitioner
         fields = [
             "name",
             "surname",
             "specialities",
             "accessibilities",
-            "reimboursement_sector",
-            "addresses",
             "organizations",
             "api_id",  # Add api_id to track the practitioner's source from the API
+            "is_active"
         ]
 
     def create(self, validated_data):
         # Extract nested data for addresses and organizations
-        addresses_data = validated_data.pop("addresses", [])
         organizations_data = validated_data.pop("organizations", [])
 
         # Create the practitioner instance with the main validated data
-        practitioner = Practitioners.objects.create(**validated_data)
+        practitioner = Practitioner.objects.create(**validated_data)
 
-        # Process and add addresses to the practitioner
-        for address_data in addresses_data:
-            address, created = Practitioner_Address.objects.get_or_create(
-                line=address_data["line"],
-                city=address_data["city"],
-                department=address_data["department"],
-                defaults={
-                    "latitude": address_data.get("latitude"),
-                    "longitude": address_data.get("longitude"),
-                },
-            )
-            practitioner.addresses.add(address)
-
-        # Process and add organizations to the practitioner
         for organization_data in organizations_data:
-            organization, created = Organization.objects.update_or_create(
+            addresses_data = organization_data.pop("addresses", [])
+            organization, created = Organization.objects.get_or_create(
                 api_organization_id=organization_data.get("api_organization_id"),
                 defaults={"name": organization_data.get("name")},
             )
+            for address_data in addresses_data:
+                address, created = Address.objects.get_or_create(
+                    line=address_data["line"],
+                    city=address_data["city"],
+                    department=address_data["department"],
+                    wheelchair_accessibility=address_data["wheelchair_accessibility"],
+                    defaults={
+                        "latitude": address_data.get("latitude"),
+                        "longitude": address_data.get("longitude"),
+                        "is_active": True
+                    },
+                )
+                organization.addresses.add(address)
             practitioner.organizations.add(organization)
 
         return practitioner
 
+    def is_valid(self, raise_exception=False):
+        valid = super().is_valid(raise_exception=raise_exception)
+        
+        # Vérification de l'api_id
+        if self.instance and 'api_id' in self.initial_data and self.initial_data['api_id'] != self.instance.api_id:
+            raise serializers.ValidationError({"api_id": "La mise à jour de api_id n'est pas autorisée."})
+        return valid
+    
     def update(self, instance, validated_data):
-        # Extract nested data for addresses and organizations
-        addresses_data = validated_data.pop("addresses", [])
+        logger.info("Starting update method")
         organizations_data = validated_data.pop("organizations", [])
+        logger.info(f"Organizations data: {organizations_data}")
 
-        # Update instance fields
         instance.name = validated_data.get("name", instance.name)
         instance.surname = validated_data.get("surname", instance.surname)
-        instance.specialities = validated_data.get(
-            "specialities", instance.specialities
-        )
-        instance.reimboursement_sector = validated_data.get(
-            "reimboursement_sector", instance.reimboursement_sector
-        )
+        instance.specialities = validated_data.get("specialities", instance.specialities)
+        instance.accessibilities = validated_data.get("accessibilities", instance.accessibilities)
         instance.save()
 
-        # Clear old addresses and add new ones
-        if addresses_data:
-            instance.addresses.clear()
-            for address_data in addresses_data:
-                address, created = Practitioner_Address.objects.get_or_create(
-                    line=address_data["line"],
-                    city=address_data["city"],
-                    department=address_data["department"],
-                    defaults={
-                        "latitude": address_data.get("latitude"),
-                        "longitude": address_data.get("longitude"),
-                    },
-                )
-                instance.addresses.add(address)
-
-        # Clear old organizations and add new ones
         if organizations_data:
             instance.organizations.clear()
             for organization_data in organizations_data:
-                org_addresses_data = organization_data.pop("addresses", [])
-                organization, created = Organization.objects.update_or_create(
+                addresses_data = organization_data.pop("addresses", [])
+                logger.info(f"Processing organization: {organization_data}")
+                organization, created = Organization.objects.get_or_create(
                     api_organization_id=organization_data.get("api_organization_id"),
                     defaults={"name": organization_data.get("name")},
                 )
-                for org_address_data in org_addresses_data:
-                    org_address, created = Practitioner_Address.objects.get_or_create(
-                        line=org_address_data["line"],
-                        city=org_address_data["city"],
-                        department=org_address_data["department"],
+                if not created:
+                    organization.name = organization_data.get("name", organization.name)
+                    organization.save()
+                for address_data in addresses_data:
+                    address, created = Address.objects.get_or_create(
+                        line=address_data["line"],
+                        city=address_data["city"],
+                        department=address_data["department"],
+                        wheelchair_accessibility=address_data["wheelchair_accessibility"],
                         defaults={
-                            "latitude": org_address_data.get("latitude"),
-                            "longitude": org_address_data.get("longitude"),
+                            "latitude": address_data.get("latitude"),
+                            "longitude": address_data.get("longitude"),
+                            "wheelchair_accessibility": address_data.get("wheelchair_accessibility"),
+                            "is_active": address_data.get("is_active", True),
                         },
                     )
-                    organization.addresses.add(org_address)
+                    organization.addresses.add(address)
                 instance.organizations.add(organization)
+
+        logger.info("Update method completed")
 
         return instance
 

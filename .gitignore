@@ -3,3 +3,4 @@ requirements.in
 __pycache__
 app.log
 .vscode
+venv
