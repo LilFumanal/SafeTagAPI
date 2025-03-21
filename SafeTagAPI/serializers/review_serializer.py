@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from ..models.review_model import Pathologie, Review, Review_Pathologie
 from ..models.tag_model import Tag, Review_Tag
-from ..models.practitioner_model import Practitioners, Practitioner_Address
+from ..models.practitioner_model import Practitioner, Address
 from .practitioner_serializer import PractitionerSerializer
 from ..lib import esante_api_treatement as eat
 
@@ -41,7 +41,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     tags = ReviewTagSerializer(many=True, source="review_tag_set")
     pathologies = ReviewPathologieSerializer(many=True, source="review_pathologie_set")
     id_address = serializers.PrimaryKeyRelatedField(
-        queryset=Practitioner_Address.objects.none()
+        queryset=Address.objects.filter(organization__practitioner__isnull=False)
     )
 
     class Meta:
@@ -50,24 +50,11 @@ class ReviewSerializer(serializers.ModelSerializer):
             "review_date",
             "comment",
             "id_user",
-            "id_practitioners",
+            "id_practitioner",
             "pathologies",
             "tags",
             "id_address",
         ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        practitioner_id = self.initial_data.get("id_practitioners")
-
-        if practitioner_id:
-            try:
-                practitioner_instance = Practitioners.objects.get(pk=practitioner_id)
-                self.fields["id_address"].queryset = (
-                    practitioner_instance.addresses.all()
-                )
-            except Practitioners.DoesNotExist:
-                raise serializers.ValidationError("The practitioner does not exist.")
 
     def create(self, validated_data):
         tags_data = validated_data.pop("review_tag_set", [])
