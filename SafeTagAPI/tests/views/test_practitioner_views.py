@@ -128,10 +128,10 @@ class TestPractitionerAsyncViews:
         assert response.json() == {"error": "Practitioner not found"}
 
 
-@pytest.mark.django_db
 class TestPractitionerView:
     
-    def test_retrieve_practitioner_found(self):
+    @pytest.mark.django_db
+    def test_retrieve_practitioner_in_database(self):
         client = APIClient()
         practitioner = Practitioner.objects.create(
             name="John",
@@ -139,21 +139,47 @@ class TestPractitionerView:
             specialities=["Cardiology"],
             api_id="12345"
         )
-        url = reverse('practitioner-detail', args=[practitioner.id])
+        url = reverse('practitioner-detail', args=[practitioner.api_id])
         response = client.get(url)
         
         assert response.status_code == status.HTTP_200_OK
         assert response.data['name'] == practitioner.name
         assert response.data['surname'] == practitioner.surname
 
-    def test_retrieve_practitioner_not_found(self):
+    @pytest.mark.django_db
+    @patch('SafeTagAPI.views.practitioner_views.get_practitioner_details')
+    def test_retrieve_practitioner_found_in_api(self, mock_get_practitioner_details):
         client = APIClient()
+        practitioner_data = {
+            "name": "John",
+            "surname": "Doe",
+            "specialities": ["Cardiology"],
+            "api_id": "999"
+        }
+        mock_get_practitioner_details.return_value = practitioner_data  # Simuler la récupération des détails du praticien depuis l'API externe
+
+        url = reverse('practitioner-detail', args=["999"])
+        response = client.get(url)
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['name'] == practitioner_data['name']
+        assert response.data['surname'] == practitioner_data['surname']
+        mock_get_practitioner_details.assert_called_once_with("999")
+        
+    @pytest.mark.django_db
+    @patch('SafeTagAPI.views.practitioner_views.get_practitioner_details')
+    def test_retrieve_practitioner_not_found(self, mock_get_practitioner_details):
+        client = APIClient()
+        mock_get_practitioner_details.return_value = None  # Simuler l'absence de données retournées
+
         url = reverse('practitioner-detail', args=["999"])
         response = client.get(url)
         
         assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert response.data['detail'] == "No Practitioner matches the given query."
-
+        assert response.data['error'] == "Practitioner not found"
+        mock_get_practitioner_details.assert_called_once_with("999")
+        
+    @pytest.mark.django_db
     @patch('SafeTagAPI.models.practitioner_model.Practitioner.get_tag_averages')
     def test_retrieve_practitioner_with_tag_averages(self,mock_get_tag_averages):
         client = APIClient()
@@ -164,7 +190,7 @@ class TestPractitionerView:
             api_id="12345"
         )
         mock_get_tag_averages.return_value = {'tag1': 5, 'tag2': 3}
-        url = reverse('practitioner-detail', args=[practitioner.id])
+        url = reverse('practitioner-detail', args=[practitioner.api_id])
         response = client.get(url)
         
         assert response.status_code == status.HTTP_200_OK
@@ -172,6 +198,7 @@ class TestPractitionerView:
         assert response.data['surname'] == practitioner.surname
         assert response.data['tag_summary_list'] == {'tag1': 5, 'tag2': 3}
 
+    @pytest.mark.django_db
     def test_practitioner_reviews(self):
         client = APIClient()
         user = CustomUser.objects.create(email='testuser@user.fr')
