@@ -27,7 +27,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
-    # permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def create(self, request, *args, **kwargs):
         """

@@ -1,6 +1,7 @@
 import os
 from socket import timeout
-from asgiref.sync import sync_to_async
+from asgiref.sync import sync_to_async, async_to_sync
+from rest_framework.permissions import AllowAny
 from rest_framework import viewsets, filters, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -33,6 +34,21 @@ def log_open_files():
     print(f"Open connections: {len(open_connections)}")
     
 class PractitionerAsyncViews(View):
+    queryset = Practitioner.objects.all()
+    serializer_class = PractitionerSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        "name",
+        "surname",
+        "specialities",
+        "addresses__city",
+        "addresses__department",
+        "addresses__wheelchair_accesibility",
+        "accessibilites"
+    ]
+    ordering_fields = ["name", "surname", "api_id"]
+    permission_classes = [AllowAny]
+    
     async def get(self, request, *args, **kwargs):
         try:
             page_url = request.GET.get('page_url', '')
@@ -112,18 +128,29 @@ class PractitionerViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
         "accessibilites"
     ]
     ordering_fields = ["name", "surname", "api_id"]
+    permission_classes = [AllowAny]
         
     def retrieve(self, request, *args, **kwargs):
-        from django.shortcuts import get_object_or_404
-        practitioner = get_object_or_404(Practitioner, pk=kwargs['pk'])
-        practitioner_data = PractitionerSerializer(practitioner).data
-        if practitioner_data:
-            tag_averages = practitioner.get_tag_averages()
-            response_data = {
-                **practitioner_data,  # Include all practitioner fields
+        try:
+            practitioner = Practitioner.objects.filter(api_id=kwargs["pk"]).first()
+            if not practitioner:
+                # Si le praticien n'existe pas, utilisez get_practitioner_details pour récupérer les détails
+                practitioner_data = async_to_sync(get_practitioner_details)(kwargs["pk"])
+                if practitioner_data:
+                    return Response(practitioner_data)
+                else:
+                    return Response({"error": "Practitioner not found"}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                practitioner_data = PractitionerSerializer(practitioner).data
+                tag_averages = practitioner.get_tag_averages()
+                response_data = {
+                    **practitioner_data,  # Include all practitioner fields
                     "tag_summary_list": tag_averages,  # Add tag summary list
-            }
-            return Response(response_data)
+                }
+                return Response(response_data)
+        except Exception as e:
+            logger.error(f"Error retrieving practitioner: {e}")
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=["get"], url_path='reviews', url_name='reviews')
     def reviews(self, request, *args, **kwargs):
