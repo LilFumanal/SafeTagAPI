@@ -1,4 +1,5 @@
 import logging
+import pytest
 from rest_framework import serializers
 from django.test import TestCase
 from SafeTagAPI.models.practitioner_model import Practitioner, Address, Organization
@@ -31,6 +32,7 @@ class PractitionerSerializerTest(TestCase):
             "api_id": "123"
         }
 
+    @pytest.mark.django_db
     def test_create_practitioner(self):
         serializer = PractitionerSerializer(data=self.practitioner_data)
         self.assertTrue(serializer.is_valid(), serializer.errors)
@@ -52,6 +54,7 @@ class PractitionerSerializerTest(TestCase):
         self.assertEqual(address.latitude, self.address_data["latitude"])
         self.assertEqual(address.longitude, self.address_data["longitude"])
 
+    @pytest.mark.django_db
     def test_update_practitioner(self):
         serializer = PractitionerSerializer(data=self.practitioner_data)
         self.assertTrue(serializer.is_valid(), serializer.errors)
@@ -63,7 +66,7 @@ class PractitionerSerializerTest(TestCase):
             "specialities": ["Neurology"],
             "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
             "organizations": [{
-                "api_organization_id": 2,
+                "api_organization_id": "2",
                 "name": "Updated Organization",
                 "addresses": [{
                     "line": "123 Main St",
@@ -98,6 +101,7 @@ class PractitionerSerializerTest(TestCase):
         self.assertEqual(address.latitude, self.address_data["latitude"])
         self.assertEqual(address.longitude, self.address_data["longitude"])
 
+    @pytest.mark.django_db
     def test_update_practitioner_with_different_api_id(self):
         serializer = PractitionerSerializer(data=self.practitioner_data)
         self.assertTrue(serializer.is_valid(), serializer.errors)
@@ -109,7 +113,7 @@ class PractitionerSerializerTest(TestCase):
             "specialities": ["Neurology"],
             "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
             "organizations": [{
-                "api_organization_id": 2,
+                "api_organization_id": "2",
                 "name": "Updated Organization",
                 "addresses": [{
                     "line": "123 Main St",

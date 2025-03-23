@@ -33,7 +33,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
         """
         Custom create method to handle fetching practitioner data from the API if not present.
         """
-        api_practitioner_id = request.data.get("id_practitioner")
+        api_practitioner_id = request.data.get("api_practitioner_id")
         tags = request.data.get("tags", [])
         pathologies = request.data.get("pathologies", [])
         address_id = request.data.get("id_address")

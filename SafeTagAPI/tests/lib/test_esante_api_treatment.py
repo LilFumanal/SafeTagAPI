@@ -19,13 +19,13 @@ class TestEsanteAPITreatment(TestCase):
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(return_value={
-            "id": 123,
+            "api_id": "123",
             "name": "Test Organization",
             "address": [{"city": "Test City", "postalCode": "12345"}]
         })
         mock_get.return_value.__aenter__.return_value = mock_response
 
-        org_reference = 123
+        org_reference = "123"
         organization_info, org_addresses = await get_organization_info(org_reference)
 
         assert organization_info["name"] == "Test Organization"
@@ -40,18 +40,18 @@ class TestEsanteAPITreatment(TestCase):
         async def mock_json():
             return {
                 "entry": [
-                    {"resource": {"id": "practitioner123", "organization": {"reference": 123}}}
+                    {"resource": {"id": "practitioner123", "organization": {"reference": "123"}}}
                 ],
                 "link": [{"relation": "next", "url": "http://next-page-url"}]
             }
         mock_response.json = mock_json
         mock_get.return_value.__aenter__.return_value = mock_response
 
-        with patch('SafeTagAPI.lib.esante_api_treatement.process_practitioner_entry', return_value={"id": 123}):
+        with patch('SafeTagAPI.lib.esante_api_treatement.process_practitioner_entry', return_value={"api_id": "123"}):
             practitioners_list, next_page = await get_all_practitioners("http://test-url")
             self.assertIsInstance(practitioners_list, list)
             self.assertEqual(len(practitioners_list), 1)
-            self.assertEqual(practitioners_list[0]["id"], 123)
+            self.assertEqual(practitioners_list[0]["api_id"], "123")
             self.assertEqual(next_page, "http://next-page-url")
 
     @pytest.mark.django_db
@@ -60,7 +60,7 @@ class TestEsanteAPITreatment(TestCase):
         cache = caches.get('default')
         await cache.clear()
         mock_response = {
-            "entry": [{"resource": {"id": 456, "organization": {"reference": 123}}}],
+            "entry": [{"resource": {"id": "456", "organization": {"reference": "123"}}}],
             "link": [{"relation": "next", "url": "http://next-page-url"}]
         }
         

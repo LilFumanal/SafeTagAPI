@@ -10,7 +10,7 @@ import pytest
 from rest_framework import status
 from asgiref.sync import sync_to_async
 from unittest.mock import patch, MagicMock
-from django.test import AsyncClient
+from httpx import AsyncClient
 from SafeTagAPI.lib.esante_api_treatement import get_all_practitioners
 from SafeTagAPI.models.practitioner_model import Address, Practitioner
 from SafeTagAPI.models.review_model import Pathologie, Review, Review_Pathologie
