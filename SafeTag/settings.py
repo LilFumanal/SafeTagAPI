@@ -208,6 +208,16 @@ STATIC_URL = "/static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
+# Configuration de Celery
+CELERY_BROKER_URL = 'redis://localhost:6380/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6380/0'
+CELERY_BEAT_SCHEDULE = {
+    'update_practitioner_data': {
+        'task': 'SafeTagAPI.tasks.update_practitioner_data',
+        'schedule': 30 * 24 * 60 * 60,  # Tous les 30 jours
+    },
+}
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

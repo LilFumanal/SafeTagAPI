@@ -77,20 +77,25 @@ Run the following command to launch the Django server :
     }
     ```
 
-- **Get Reviews for a Practitioner**: `GET /reviews/{practitioner_id}/practitioner_reviews/`
-  - Retrieves all reviews for a specific practitioner.
-
 ### Practitioners
 
-- **Get Practitioner Details**: `GET /practitioner/{id}/`
+- **Get Practitioner List**: `GET /practitioners/`
 
-  - Retrieves details of a specific practitioner, including tag averages.
+  - Retrieves the list of practitioners from the esante api.
 
-- **Get Reviews for a Practitioner**: `GET /practitioner/{id}/reviews/`
+- **Get Practitioner Details**: `GET /practitioner/{api-id}/`
+
+  - Retrieves details of a specific practitioner, with him being registered in our database or not.
+
+- **Post Practitioner Details**: `POST /practitioner/{api-id}/`
+
+  - Register a practitioner in database. For testing purpoose only. Automatically triggered by the creation of a review.
+
+- **Get Reviews for a Practitioner**: `GET /practitioner/{api_id}/reviews/`
 
   - Retrieves all reviews for a specific practitioner.
 
-- **Update Practitioner Accessibilities**: `POST /practitioner/update_accessibilities/`
+- **Update Practitioner Accessibilities**: `PATCH /practitioner/{api_id}`
   - Allows users to update accessibility details for a practitioner.
   - Example request body:
     ```json
@@ -102,15 +107,15 @@ Run the following command to launch the Django server :
 
 ### Practitioner Addresses
 
-- **List Practitioner Addresses**: `GET /practitioner_addresses/`
+- **List Practitioner Addresses**: `GET /addresses/`
 
   - Retrieves a list of practitioner addresses.
 
-- **Retrieve a Practitioner Address**: `GET /practitioner_addresses/{id}/`
+- **Retrieve a Practitioner Address**: `GET /addresses/{id}/`
 
   - Retrieves details of a specific practitioner address.
 
-- **Update Wheelchair Accessibility**: `PATCH /practitioner_addresses/{id}/`
+- **Update Wheelchair Accessibility**: `PATCH /addresses/{id}/`
   - Allows updating only the `wheelchair_accessibility` field.
   - Example request body:
     ```json
@@ -119,11 +124,29 @@ Run the following command to launch the Django server :
     }
     ```
 
-### Organizations
+### User Registration and Authentication
 
-- **List Organizations**: `GET /organizations/`
+- **Register**: `/register/`
+  - This will handle user registration.
+- **Obtain JWT** : `/api/token/`
+  - This will handle obtaining JWT tokens.
+- **Refresh JWT** `/api/token/refresh/`
+  - This will handle refreshing JWT tokens.
 
-  - Retrieves a list of organizations.
+## Testing
 
-- **Retrieve an Organization**: `GET /organizations/{id}/`
-  - Retrieves details of a specific organization.
+### Unit-test
+
+For now, it seems certains tests won't pass when launched by groups, but will pass when launch manually. It's more a test problem than a website problem. I can't fix it yet.
+
+### The celery task
+
+You should have notice we also had to configure celery. Its tasks will allow us to automatically check, every 30 days, the changes in the esante.gateway api about the practitioners.
+The update of theses datas will also happen within 30 days if a practitionner has been consulted.
+
+In order to trigger this task to know it's working, you can, after launching your redis server, try to launch
+
+```
+celery -A SafeTag worker --loglevel=info
+celery -A SafeTag beat --loglevel=info
+```
