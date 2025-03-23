@@ -29,22 +29,22 @@ class OrganizationModelTest(TestCase):
             is_active=True
         )
         self.organization = Organization.objects.create(
-            api_organization_id=123,
+            api_organization_id="123",
             name="Test Organization"
         )
         self.organization.addresses.add(self.address1, self.address2)
 
     def test_organization_creation(self):
-        org = Organization.objects.get(api_organization_id=123)
+        org = Organization.objects.get(api_organization_id="123")
         self.assertEqual(org.name, "Test Organization")
-        self.assertEqual(org.api_organization_id, 123)
+        self.assertEqual(org.api_organization_id, "123")
 
     def test_organization_str(self):
-        org = Organization.objects.get(api_organization_id=123)
+        org = Organization.objects.get(api_organization_id="123")
         self.assertEqual(str(org), "Test Organization")
 
     def test_organization_addresses(self):
-        org = Organization.objects.get(api_organization_id=123)
+        org = Organization.objects.get(api_organization_id="123")
         addresses = org.addresses.all()
         self.assertEqual(addresses.count(), 2)
         self.assertIn(self.address1, addresses)
@@ -76,7 +76,7 @@ class PractitionerModelTest(TestCase):
 
     def setUp(self):
         self.organization = Organization.objects.create(
-            api_organization_id=123,
+            api_organization_id="123",
             name="Test Organization"
         )
         self.address = Address.objects.create(
@@ -92,7 +92,7 @@ class PractitionerModelTest(TestCase):
         self.practitioner = Practitioner.objects.create(
             name="John",
             surname="Doe",
-            api_id=1,
+            api_id="1",
             reimboursement_sector="Sector 1"
         )
         self.practitioner.organizations.add(self.organization)
@@ -118,17 +118,17 @@ class PractitionerModelTest(TestCase):
         Review_Tag.objects.create(id_review=self.review2, id_tag=self.tag2, rates=1)
 
     def test_practitioner_creation(self):
-        practitioner = Practitioner.objects.get(api_id=1)
+        practitioner = Practitioner.objects.get(api_id="1")
         self.assertEqual(practitioner.name, "John")
         self.assertEqual(practitioner.surname, "Doe")
         self.assertEqual(practitioner.reimboursement_sector, "Sector 1")
 
     def test_practitioner_str(self):
-        practitioner = Practitioner.objects.get(api_id=1)
+        practitioner = Practitioner.objects.get(api_id="1")
         self.assertEqual(str(practitioner), "John Doe")
 
     def test_practitioner_get_tag_averages(self):
-        practitioner = Practitioner.objects.get(api_id=1)
+        practitioner = Practitioner.objects.get(api_id="1")
         tag_averages = practitioner.get_tag_averages()
         self.assertEqual(len(tag_averages), 2)
         self.assertEqual(tag_averages[0]['tag'], "Discrimination")
@@ -142,7 +142,7 @@ class ProfessionalTagScoreModelTest(TestCase):
         self.practitioner = Practitioner.objects.create(
             name="John",
             surname="Doe",
-            api_id=1
+            api_id="1"
         )
         self.tag = Tag.objects.create(type="Test Type", description="Test Description")
         self.professional_tag_score = Professional_Tag_Score.objects.create(

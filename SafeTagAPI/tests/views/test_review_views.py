@@ -18,8 +18,8 @@ class ReviewViewSetTests(TestCase):
     
     def setUp(self):
         self.user = CustomUser.objects.create(username='testuser', id=1)
-        self.practitioner = Practitioner.objects.create(name='John', surname='Doe', api_id=1)
-        self.organization = Organization.objects.create(name="Test Organization", api_organization_id=1)
+        self.practitioner = Practitioner.objects.create(name='John', surname='Doe', api_id="1")
+        self.organization = Organization.objects.create(name="Test Organization", api_organization_id="1")
         self.address1 = Address.objects.create(
             line="123 Main St",
             city="Test City",
@@ -76,18 +76,18 @@ class ReviewViewSetTests(TestCase):
         """
         # Simuler une réponse API valide
         mock_get_practitioner_details.return_value = {
-            "api_id": 99999,
+            "api_id": "99999",
             "name": "Dr. API Test",
             "surname": "Jean",
             "organizations": [{"api_organization_id": 2, "name": "Test Organization", "addresses": [{"line": "123 Main St", "city": "Test City", "department": 1, "latitude": 12.34, "longitude": 56.78, "wheelchair_accessibility": True, "is_active": True}]}],
             "specialities": ["Cardiology"],
         }
-        self.review_data["id_practitioner"] = 99999
+        self.review_data["id_practitioner"] = "99999"
         url = reverse("review-list")
         response = self.client.post(url, self.review_data, content_type="application/json")
         print(response.data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(Practitioner.objects.filter(api_id=99999).exists())
+        self.assertTrue(Practitioner.objects.filter(api_id="99999").exists())
         self.assertEqual(Review.objects.count(), 2)
 
     @pytest.mark.django_db
@@ -99,11 +99,11 @@ class ReviewViewSetTests(TestCase):
         # Simuler une réponse API négative
         mock_get_practitioner_details.return_value = None
 
-        self.review_data["id_practitioner"] = 99999  # Praticien inexistant
+        self.review_data["id_practitioner"] = "99999"  # Praticien inexistant
         url = reverse("review-list")
         response = self.client.post(url, self.review_data, content_type="application/json")
 
         # 🚫 Vérifications
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertFalse(Practitioner.objects.filter(api_id=99999).exists())  # Ne doit pas exister
+        self.assertFalse(Practitioner.objects.filter(api_id="99999").exists())  # Ne doit pas exister
         self.assertEqual(Review.objects.count(), 1)  # Aucune nouvelle review ne doit être ajoutée

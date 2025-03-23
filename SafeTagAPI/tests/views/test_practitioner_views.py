@@ -55,13 +55,13 @@ class TestPractitionerAsyncViews:
                     "is_active": True
                 }]
             }],
-            "api_id": 12345
+            "api_id": "12345"
         }
         mock_get_practitioner_details.return_value = practitioner_data
 
         response = await client.post(
             reverse('practitioners'),
-            data=json.dumps({"api_id": 12345}),
+            data=json.dumps({"api_id": "12345"}),
             content_type='application/json'
         )
         assert response.status_code == 201
@@ -102,11 +102,11 @@ class TestPractitionerAsyncViews:
             name="John",
             surname="Doe",
             specialities=["Cardiology"],
-            api_id=12345
+            api_id="12345"
         )
         url = reverse('practitioners')
         data = {
-            "api_id": 12345,
+            "api_id": "12345",
             "accessibilities": {"LSF": "Yes", "Visio": "Yes"}
         }
         response = await client.patch(url, data=json.dumps(data), content_type='application/json')
@@ -119,7 +119,7 @@ class TestPractitionerAsyncViews:
         client = AsyncClient()
         url = reverse('practitioners')
         data = {
-            "api_id": 125,
+            "api_id": "125",
             "accessibilities": {"LSF": "Yes", "Visio": "Yes"}
         }
         response = await client.patch(url, data=json.dumps(data), content_type='application/json')
@@ -148,7 +148,7 @@ class TestPractitionerView:
 
     def test_retrieve_practitioner_not_found(self):
         client = APIClient()
-        url = reverse('practitioner-detail', args=[999])
+        url = reverse('practitioner-detail', args=["999"])
         response = client.get(url)
         
         assert response.status_code == status.HTTP_404_NOT_FOUND

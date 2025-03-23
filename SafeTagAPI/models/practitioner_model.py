@@ -17,7 +17,7 @@ class Address(models.Model):
 
 
 class Organization(models.Model):
-    api_organization_id = models.IntegerField(unique=True)
+    api_organization_id = models.CharField(unique=True)
     name = models.CharField(max_length=255)
     addresses = models.ManyToManyField('Address')
 
@@ -42,7 +42,7 @@ class Practitioner(models.Model):
     )
     reimboursement_sector = models.CharField(max_length=100, blank=True, null=True)
     organizations = models.ManyToManyField(Organization)
-    api_id = models.IntegerField(unique=True)
+    api_id = models.CharField(unique=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):

@@ -12,7 +12,7 @@ class TestReviewSerializer:
 
     def setup_method(self):
         self.user = CustomUser.objects.create(username='testuser')
-        self.practitioner = Practitioner.objects.create(name='John', surname='Doe', api_id=1)
+        self.practitioner = Practitioner.objects.create(name='John', surname='Doe', api_id="1")
         self.organization = Organization.objects.create(name="Test Organization", api_organization_id=1)
         self.address = Address.objects.create(
             line="123 Main St",
@@ -53,7 +53,7 @@ class TestReviewSerializer:
             'review_date': '2023-01-01',
             'comment': 'Test Comment',
             'id_user': self.user.id,
-            'id_practitioner': 999,  # Invalid practitioner ID
+            'id_practitioner': "999",  # Invalid practitioner ID
             'pathologies': [{'id_pathologie': self.pathologie.id}],
             'tags': [{'id_tag': self.tag.id, 'rates': 5}],
             'id_address': self.address.id

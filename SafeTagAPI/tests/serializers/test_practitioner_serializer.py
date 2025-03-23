@@ -18,7 +18,7 @@ class PractitionerSerializerTest(TestCase):
             "wheelchair_accessibility": True
         }
         self.organization_data = {
-            "api_organization_id": 1,
+            "api_organization_id": "1",
             "name": "Test Organization",
             "addresses": [self.address_data]
         }
@@ -28,7 +28,7 @@ class PractitionerSerializerTest(TestCase):
             "specialities": ["Cardiology"],
             "accessibilities": {"LSF": "Unknown", "Visio": "Unknown"},
             "organizations": [self.organization_data],
-            "api_id": 123
+            "api_id": "123"
         }
 
     def test_create_practitioner(self):
@@ -75,7 +75,7 @@ class PractitionerSerializerTest(TestCase):
                     "is_active": True
                 }]
             }],
-            "api_id": 123
+            "api_id": "123"
         }
         update_serializer = PractitionerSerializer(practitioner, data=updated_data)
         self.assertTrue(update_serializer.is_valid(), update_serializer.errors)
@@ -84,10 +84,10 @@ class PractitionerSerializerTest(TestCase):
         self.assertEqual(updated_practitioner.surname, updated_data["surname"])
         self.assertEqual(updated_practitioner.specialities, updated_data["specialities"])
         self.assertEqual(updated_practitioner.accessibilities, updated_data["accessibilities"])
-        self.assertEqual(updated_practitioner.api_id, 123)
+        self.assertEqual(updated_practitioner.api_id, "123")
         self.assertEqual(updated_practitioner.organizations.count(), 1)
         organization = updated_practitioner.organizations.first()
-        self.assertEqual(organization.api_organization_id, 2)
+        self.assertEqual(organization.api_organization_id, "2")
         self.assertEqual(organization.name, "Updated Organization")
         self.assertEqual(organization.addresses.count(), 1)
         address = organization.addresses.first()
@@ -121,7 +121,7 @@ class PractitionerSerializerTest(TestCase):
                     "is_active":True
                 }]
             }],
-            "api_id": 456789  # Trying to change api_id
+            "api_id": "456789"  # Trying to change api_id
         }
         update_serializer = PractitionerSerializer(practitioner, data=updated_data)
         with self.assertRaises(serializers.ValidationError):

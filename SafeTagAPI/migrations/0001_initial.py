@@ -163,7 +163,7 @@ class Migration(migrations.Migration):
                     "reimboursement_sector",
                     models.CharField(blank=True, max_length=100, null=True),
                 ),
-                ("api_id", models.IntegerField(unique=True)),
+                ("api_id", models.CharField(unique=True)),
                 ("is_active", models.BooleanField(default=True)),
                 ("organizations", models.ManyToManyField(to="SafeTagAPI.organization")),
             ],

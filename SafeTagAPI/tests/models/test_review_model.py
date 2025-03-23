@@ -8,7 +8,7 @@ class ReviewModelTest(TestCase):
 
     def setUp(self):
         self.user = CustomUser.objects.create(username="testuser", password="password")
-        self.practitioner = Practitioner.objects.create(name="John", surname="Doe", api_id=1)
+        self.practitioner = Practitioner.objects.create(name="John", surname="Doe", api_id="1")
         self.address = Address.objects.create(
             line="123 Main St",
             city="Test City",
